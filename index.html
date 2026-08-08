@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>STRATOVEX - Carte terrestre réaliste</title>
+    <title>STRATOVEX - Carte terrestre réaliste (dégradés)</title>
     <style>
         body {
             background-color: #060a12;
@@ -16,17 +16,7 @@
             margin: 0;
             user-select: none;
         }
-        #hud {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            width: 1000px;
-            margin-bottom: 8px;
-            background: #0f1724;
-            padding: 10px 18px;
-            border-radius: 6px;
-            border: 1px solid #1e2c40;
-        }
+        #hud { display:flex; flex-direction:column; gap:6px; width:1000px; margin-bottom:8px; background:#0f1724; padding:10px 18px; border-radius:6px; border:1px solid #1e2c40 }
         .hud-row { display:flex; justify-content:space-between; align-items:center }
         .stat-group { display:flex; gap:15px; font-weight:bold; font-size:13px }
         .controls-group { display:flex; align-items:center; gap:8px; background:#182538; padding:4px 10px; border-radius:4px }
@@ -60,31 +50,22 @@
         </div>
     </div>
 
-    <!-- logical resolution kept for gameplay -->
     <canvas id="gameCanvas" width="1000" height="500" aria-label="Carte du monde"></canvas>
 
     <script>
-    // STRATOVEX: replace procedural map by realistic coastlines using public GeoJSON
-    // We rasterize countries GeoJSON into an equirectangular canvas to get precise land/sea.
-
+    // STRATOVEX: realistic coastlines + terrain gradients
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-
-    const cols = 1000; // logical resolution matched to canvas for visual fidelity
-    const rows = 500;
-
-    // keep display scale 1:1 here (canvas sized to 1000x500)
-    canvas.width = cols;
-    canvas.height = rows;
+    const cols = 1000, rows = 500;
+    canvas.width = cols; canvas.height = rows;
 
     let gameStarted = false;
-    let gold = 200;
-    let reserveTroops = 300;
-    let sendPercentage = 50;
+    let gold = 200, reserveTroops = 300, sendPercentage = 50;
 
-    const world = new Uint8Array(cols * rows); // 0 water, 1 land
-    const terrain = new Uint8Array(cols * rows); // 1 plain,2 desert,3 mountain
-    const owners = new Uint8Array(cols * rows);
+    const world = new Uint8Array(cols*rows); // 0 water, 1 land
+    const terrain = new Uint8Array(cols*rows); // 0 water,1 plain,2 desert,3 mountain
+    const owners = new Uint8Array(cols*rows);
+    const elevation = new Float32Array(cols*rows); // 0..1 elevation metric used for gradients
 
     let playerColors = {};
     function generateRandomColor(){
@@ -93,137 +74,160 @@
         const l = 45 + Math.floor(Math.random()*15);
         const c = (1 - Math.abs(2*l/100 - 1))*(s/100);
         const x = c*(1 - Math.abs((h/60)%2 -1));
-        const m = l/100 - c/2;
-        let r=0,g=0,b=0;
+        const m = l/100 - c/2; let r=0,g=0,b=0;
         if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}
         return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
     }
     function assignColors(){ playerColors[1]=generateRandomColor(); playerColors[2]=generateRandomColor(); playerColors[3]=generateRandomColor(); document.getElementById('myColorDot').style.background = `rgb(${playerColors[1].join(',')})`; }
     assignColors();
 
-    // Terrain color palette
-    const terrainColors = {1:[91,140,49],2:[210,180,120],3:[232,236,239]};
+    // Color palettes for gradient (low..high)
+    const PALETTES = {
+        plain_low: [37, 100, 33], // deep green
+        plain_high: [195, 230, 160], // light green
+        desert_low: [194, 163, 95],
+        desert_high: [255, 245, 157],
+        mountain_low: [120,120,120],
+        mountain_high: [245,245,245],
+        sea_deep: [10,20,40],
+        sea_shallow: [40,80,130]
+    };
 
-    // Load countries GeoJSON (public dataset)
+    // GeoJSON source for countries (public)
     const GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
+
+    function lon2x(lon){ return Math.floor((lon + 180) / 360 * cols); }
+    function lat2y(lat){ return Math.floor((90 - lat) / 180 * rows); }
+
+    function lerp(a,b,t){ return a + (b-a)*t; }
+    function lerpColor(c1,c2,t){ return [ Math.round(lerp(c1[0],c2[0],t)), Math.round(lerp(c1[1],c2[1],t)), Math.round(lerp(c1[2],c2[2],t)) ]; }
 
     async function buildWorldFromGeoJSON(){
         const res = await fetch(GEOJSON_URL);
         const geo = await res.json();
-        // draw into an offscreen canvas using equirectangular projection
-        const off = document.createElement('canvas'); off.width = cols; off.height = rows; const octx = off.getContext('2d');
-        octx.fillStyle = '#000'; octx.fillRect(0,0,cols,rows);
-        octx.fillStyle = '#fff';
+        const off = document.createElement('canvas'); off.width=cols; off.height=rows; const octx = off.getContext('2d');
+        octx.fillStyle='#000'; octx.fillRect(0,0,cols,rows); octx.fillStyle='#fff';
 
-        function lon2x(lon){ return Math.floor((lon + 180) / 360 * cols); }
-        function lat2y(lat){ return Math.floor((90 - lat) / 180 * rows); }
-
-        // GeoJSON can contain MultiPolygons / Polygons
-        geo.features.forEach(f => {
-            const geom = f.geometry;
-            if(!geom) return;
-            const drawPoly = (coords) => {
-                octx.beginPath();
-                coords.forEach((ring, ri) => {
-                    ring.forEach((pt, i) => {
-                        const x = lon2x(pt[0]);
-                        const y = lat2y(pt[1]);
-                        if(i===0) octx.moveTo(x,y); else octx.lineTo(x,y);
-                    });
-                    octx.closePath();
+        geo.features.forEach(f=>{
+            const geom = f.geometry; if(!geom) return;
+            const drawPoly = (coords)=>{
+                coords.forEach(ring=>{
+                    octx.beginPath(); ring.forEach((pt,i)=>{ const x=lon2x(pt[0]); const y=lat2y(pt[1]); if(i===0) octx.moveTo(x,y); else octx.lineTo(x,y); }); octx.closePath(); octx.fill();
                 });
-                octx.fill();
             };
-
-            if(geom.type === 'Polygon') drawPoly(geom.coordinates);
-            else if(geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawPoly(p));
+            if(geom.type==='Polygon') drawPoly(geom.coordinates);
+            else if(geom.type==='MultiPolygon') geom.coordinates.forEach(p=>drawPoly(p));
         });
 
-        // read back pixels to set world[]
         const img = octx.getImageData(0,0,cols,rows).data;
         for(let y=0;y<rows;y++){
             for(let x=0;x<cols;x++){
-                const i = (y*cols + x)*4;
-                const r = img[i], g=img[i+1], b=img[i+2];
-                // white = land
-                if(r>128 || g>128 || b>128) world[y*cols + x] = 1; else world[y*cols + x] = 0;
+                const i=(y*cols+x)*4; const r=img[i]; const g=img[i+1]; const b=img[i+2]; world[y*cols+x] = (r>128||g>128||b>128)?1:0;
             }
         }
 
-        // Generate terrain using elevation approximation: combine latitude + noise
+        // Compute elevation metric using noise + latitude + proximity to coasts
+        // We'll compute a normalized value in [0,1]
+        // Precompute a simple distance-to-sea metric (how close pixel is to coastline)
+        const distToSea = new Float32Array(cols*rows);
+        // Simple BFS from sea pixels to compute distance (manhattan) - approximate
+        const queue = [];
+        const INF = 1e9;
+        for(let i=0;i<cols*rows;i++){ distToSea[i]=INF; }
+        for(let y=0;y<rows;y++) for(let x=0;x<cols;x++){ const idx=y*cols+x; if(world[idx]===0){ distToSea[idx]=0; queue.push(idx); } }
+        // 4-neighbors BFS
+        for(let qi=0;qi<queue.length;qi++){ const id=queue[qi]; const y=Math.floor(id/cols), x=id%cols; const neighbors=[ [x-1,y],[x+1,y],[x,y-1],[x,y+1] ]; neighbors.forEach(n=>{ const nx=n[0], ny=n[1]; if(nx>=0&&nx<cols&&ny>=0&&ny<rows){ const nid=ny*cols+nx; if(distToSea[nid]===INF){ distToSea[nid]=distToSea[id]+1; queue.push(nid); } } }); }
+        // Normalize distances for land pixels
+        let maxDist=0; for(let i=0;i<cols*rows;i++){ if(distToSea[i]!==INF && distToSea[i]>maxDist) maxDist = distToSea[i]; }
+        if(maxDist===0) maxDist=1;
+
         for(let y=0;y<rows;y++){
-            const lat = 90 - (y / rows) * 180; // degrees
+            const lat = 90 - (y/rows)*180;
             for(let x=0;x<cols;x++){
                 const idx = y*cols + x;
-                if(world[idx]===0){ terrain[idx]=0; continue; }
-                // simple rules: mountains more likely at higher latitudes and in some noise pockets
-                const noise = pseudoNoise(x, y, 0.02) + pseudoNoise(x*1.5,y*1.3,0.04)*0.5;
-                const mountainScore = noise + (Math.abs(lat) > 40 ? 0.35 : 0); // more mountains towards poles
-                if(mountainScore > 0.55) terrain[idx]=3; // mountain
-                else if(mountainScore > 0.15) terrain[idx]=2; // desert-ish/brownish (not true desert but varied)
+                if(world[idx]===0){ elevation[idx]=0; terrain[idx]=0; continue; }
+                // base noise
+                const noise = pseudoNoise(x,y,0.02) * 0.6 + pseudoNoise(x*1.3,y*1.1,0.05)*0.4; // -1..1
+                // coastal effect: farther from sea => more landmass interior
+                const d = Math.min(distToSea[idx]/maxDist,1); // 0 near sea, 1 deep inland
+                // lat effect: mountains more likely at higher abs(lat)
+                const latFactor = Math.abs(lat)/90; // 0..1
+                // combine into elev raw (approx)
+                let raw = 0.4*noise + 0.4*d + 0.2*latFactor; // approx -1..1+
+                // normalize to 0..1
+                raw = (raw + 1) / 2; raw = Math.max(0, Math.min(1, raw));
+                elevation[idx] = raw;
+                // classify terrain using thresholds on elevation
+                if(raw > 0.72) terrain[idx]=3; // mountain
+                else if(raw > 0.45) terrain[idx]=2; // dry/plateau
                 else terrain[idx]=1; // plain
             }
         }
 
-        // initial owners: none
+        // initial owners
         for(let i=0;i<cols*rows;i++) owners[i]=0;
-
-        // draw initial image
         ownersChanged = true;
+        console.log('World built with gradients.');
     }
 
-    function pseudoNoise(x,y,scale){ return (Math.sin(x*scale) + Math.cos(y*scale) + Math.sin((x+y)*scale*0.5))/3; }
+    function pseudoNoise(x,y,scale){ return (Math.sin(x*scale)+Math.cos(y*scale)+Math.sin((x+y)*scale*0.5))/3; }
 
-    // Call build
-    buildWorldFromGeoJSON().then(()=>{ console.log('World built from GeoJSON'); });
+    buildWorldFromGeoJSON().catch(err=>{ console.error('Erreur build world',err); });
 
-    // gameplay arrays
+    // gameplay
     let activeArmies = [];
-
-    // button handlers
-    document.querySelectorAll('.send-btn').forEach(btn=>btn.addEventListener('click',()=>{
-        const pct = Number(btn.getAttribute('data-pct'))||50;
-        sendPercentage = pct; document.querySelectorAll('.send-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); updateHUD();
-    }));
+    document.querySelectorAll('.send-btn').forEach(btn=>btn.addEventListener('click',()=>{ const pct=Number(btn.getAttribute('data-pct'))||50; sendPercentage=pct; document.querySelectorAll('.send-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); updateHUD(); }));
 
     canvas.addEventListener('click', (e)=>{
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = cols / rect.width; const scaleY = rows / rect.height;
-        const tx = Math.floor((e.clientX - rect.left) * scaleX);
-        const ty = Math.floor((e.clientY - rect.top) * scaleY);
-        if(tx<0||tx>=cols||ty<0||ty>=rows) return;
-        const idx = ty*cols + tx;
-        if(!gameStarted){
-            if(world[idx]===1){ setSpawnArea(ty,tx,1,8); spawnOtherBots(ty,tx); gameStarted=true; document.getElementById('spawnNotice').style.display='none'; document.getElementById('actionMsg').innerText='🎮 Partie lancée !'; document.getElementById('actionMsg').style.color='#88a0bc'; updateHUD(); }
-            else{ document.getElementById('actionMsg').innerText='⚠️ Tu dois choisir un emplacement sur la TERRE !'; document.getElementById('actionMsg').style.color='#ff4444'; }
-            return;
-        }
-        if(world[idx]===1 && owners[idx]!==1){ let start = findClosestTerritoryPoint(tx,ty,1); if(start){ let amount = Math.floor(reserveTroops*(sendPercentage/100)); amount=Math.max(1,amount); reserveTroops-=amount; activeArmies.push({x:start.x+0.5,y:start.y+0.5,targetX:tx+0.5,targetY:ty+0.5,count:amount,owner:1}); document.getElementById('actionMsg').innerText=`⚔️ ${amount} troupes en marche vers la cible !`; ownersChanged=true; updateHUD(); } }
+        const rect = canvas.getBoundingClientRect(); const scaleX = cols/rect.width; const scaleY = rows/rect.height; const tx = Math.floor((e.clientX-rect.left)*scaleX); const ty = Math.floor((e.clientY-rect.top)*scaleY);
+        if(tx<0||tx>=cols||ty<0||ty>=rows) return; const idx = ty*cols + tx;
+        if(!gameStarted){ if(world[idx]===1){ setSpawnArea(ty,tx,1,8); spawnOtherBots(ty,tx); gameStarted=true; document.getElementById('spawnNotice').style.display='none'; document.getElementById('actionMsg').innerText='🎮 Partie lancée !'; document.getElementById('actionMsg').style.color='#88a0bc'; updateHUD(); } else { document.getElementById('actionMsg').innerText='⚠️ Tu dois choisir un emplacement sur la TERRE !'; document.getElementById('actionMsg').style.color='#ff4444'; } return; }
+        if(world[idx]===1 && owners[idx]!==1){ const start=findClosestTerritoryPoint(tx,ty,1); if(start){ let amount = Math.floor(reserveTroops*(sendPercentage/100)); amount=Math.max(1,amount); reserveTroops-=amount; activeArmies.push({x:start.x+0.5,y:start.y+0.5,targetX:tx+0.5,targetY:ty+0.5,count:amount,owner:1}); document.getElementById('actionMsg').innerText=`⚔️ ${amount} troupes en marche vers la cible !`; ownersChanged=true; updateHUD(); } }
     });
 
-    function setSpawnArea(r,c,ownerId,radius=6){ for(let dr=-radius;dr<=radius;dr++){ for(let dc=-radius;dc<=radius;dc++){ const nr=r+dr,nc=c+dc; if(nr>=0 && nr<rows && nc>=0 && nc<cols){ const i=nr*cols+nc; if(world[i]===1) owners[i]=ownerId; } }} ownersChanged=true; }
+    function setSpawnArea(r,c,ownerId,radius=6){ for(let dr=-radius;dr<=radius;dr++) for(let dc=-radius;dc<=radius;dc++){ const nr=r+dr, nc=c+dc; if(nr>=0&&nr<rows&&nc>=0&&nc<cols){ const i=nr*cols+nc; if(world[i]===1) owners[i]=ownerId; } } ownersChanged=true; }
+    function spawnOtherBots(playerR,playerC){ let spawned=0, attempts=0; while(spawned<2 && attempts<2000){ attempts++; const rr=Math.floor(Math.random()*(rows-60))+30; const rc=Math.floor(Math.random()*(cols-60))+30; const idx=rr*cols+rc; const dist=Math.hypot(rc-playerC,rr-playerR); if(world[idx]===1 && owners[idx]===0 && dist>150){ setSpawnArea(rr,rc,(spawned===0?2:3),6); spawned++; } } }
+    function findClosestTerritoryPoint(tx,ty,ownerId){ let closest=null,md=Infinity; for(let y=0;y<rows;y+=4) for(let x=0;x<cols;x+=4){ const i=y*cols+x; if(owners[i]===ownerId){ const d=Math.hypot(x-tx,y-ty); if(d<md){md=d; closest={x,y}} } } return closest; }
 
-    function spawnOtherBots(playerR,playerC){ let spawned=0,attempts=0; while(spawned<2 && attempts<2000){ attempts++; const rr=Math.floor(Math.random()*(rows-60))+30; const rc=Math.floor(Math.random()*(cols-60))+30; const idx=rr*cols+rc; const dist=Math.hypot(rc-playerC,rr-playerR); if(world[idx]===1 && owners[idx]===0 && dist>150){ const bot = (spawned===0?2:3); setSpawnArea(rr,rc,bot,6); spawned++; } } }
+    function updateArmies(){ for(let i=activeArmies.length-1;i>=0;i--){ const army=activeArmies[i]; const cx=Math.floor(army.x), cy=Math.floor(army.y); if(cx<0||cx>=cols||cy<0||cy>=rows){ activeArmies.splice(i,1); continue; } const idx=cy*cols+cx; const terrainType=terrain[idx]||1; const speedModifier=(terrainType===3?0.35:(terrainType===2?0.7:1.0)); const baseSpeed=0.9; const dx=army.targetX-army.x, dy=army.targetY-army.y; const dist=Math.hypot(dx,dy); if(dist>0.5 && army.count>0){ army.x += (dx/dist)*baseSpeed*speedModifier; army.y += (dy/dist)*baseSpeed*speedModifier; const nidx = Math.floor(army.y)*cols + Math.floor(army.x); if(world[nidx]===1 && owners[nidx]!==army.owner){ owners[nidx]=army.owner; army.count = Math.max(0, army.count - 1); ownersChanged=true; } } else { activeArmies.splice(i,1); } if(army.count<=0 && activeArmies[i]) activeArmies.splice(i,1); } }
 
-    function findClosestTerritoryPoint(tx,ty,ownerId){ let closest=null,md=Infinity; for(let y=0;y<rows;y+=4){ for(let x=0;x<cols;x+=4){ const i=y*cols+x; if(owners[i]===ownerId){ const d=Math.hypot(x-tx,y-ty); if(d<md){md=d;closest={x,y}} } }} return closest; }
-
-    function updateArmies(){ for(let i=activeArmies.length-1;i>=0;i--){ const army=activeArmies[i]; const cx=Math.floor(army.x), cy=Math.floor(army.y); if(cx<0||cx>=cols||cy<0||cy>=rows){ activeArmies.splice(i,1); continue; } const idx=cy*cols+cx; const terrainType=terrain[idx]||1; const speedModifier = (terrainType===3?0.35:(terrainType===2?0.7:1.0)); const baseSpeed=0.9; const dx=army.targetX-army.x, dy=army.targetY-army.y; const dist=Math.hypot(dx,dy); if(dist>0.5 && army.count>0){ army.x += (dx/dist)*baseSpeed*speedModifier; army.y += (dy/dist)*baseSpeed*speedModifier; const nidx = Math.floor(army.y)*cols + Math.floor(army.x); if(world[nidx]===1 && owners[nidx]!==army.owner){ owners[nidx]=army.owner; army.count = Math.max(0, army.count - 1); ownersChanged=true; } } else { activeArmies.splice(i,1); } if(army.count<=0 && activeArmies[i]) activeArmies.splice(i,1); } }
-
-    setInterval(()=>{ if(!gameStarted) return; const territory = countTerritory(1); reserveTroops += Math.max(3, Math.floor(territory*0.05)); gold += Math.max(1, Math.floor(territory*0.02)); updateHUD(); }, 1000);
-
+    setInterval(()=>{ if(!gameStarted) return; const territory=countTerritory(1); reserveTroops += Math.max(3, Math.floor(territory*0.05)); gold += Math.max(1, Math.floor(territory*0.02)); updateHUD(); },1000);
     function countTerritory(ownerId){ let c=0; for(let i=0;i<cols*rows;i++) if(owners[i]===ownerId) c++; return c; }
     function updateHUD(){ document.getElementById('goldVal').innerText=Math.floor(gold); document.getElementById('reserveVal').innerText=Math.floor(reserveTroops); document.getElementById('sendVal').innerText=Math.floor(reserveTroops*(sendPercentage/100)); }
 
-    // ImageData buffer
     const imgData = ctx.createImageData(cols,rows); const data = imgData.data; let ownersChanged = true;
-    function rebuildImageData(){ for(let i=0;i<cols*rows;i++){ const p=i*4; if(world[i]===1){ const o=owners[i]; if(o>0 && playerColors[o]){ const c=playerColors[o]; data[p]=c[0]; data[p+1]=c[1]; data[p+2]=c[2]; data[p+3]=255; } else { const t=terrain[i]||1; const c=terrainColors[t]||[91,140,49]; data[p]=c[0]; data[p+1]=c[1]; data[p+2]=c[2]; data[p+3]=255; } } else { data[p]=18; data[p+1]=25; data[p+2]=36; data[p+3]=255; } } ownersChanged=false; }
 
-    function draw(){ updateArmies(); if(ownersChanged){ rebuildImageData(); ctx.putImageData(imgData,0,0); } else { ctx.putImageData(imgData,0,0); }
-        // draw armies
-        activeArmies.forEach(a=>{ ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.floor(a.x)-1, Math.floor(a.y)-1, 2, 2); ctx.fillStyle = playerColors[a.owner] ? `rgb(${playerColors[a.owner].join(',')})` : '#ffffff'; ctx.fillRect(Math.floor(a.x), Math.floor(a.y), 1, 1); });
-        requestAnimationFrame(draw);
+    function rebuildImageData(){
+        for(let i=0;i<cols*rows;i++){
+            const p=i*4;
+            if(world[i]===1){
+                const elev = elevation[i] || 0.0; // 0..1
+                const t = terrain[i] || 1;
+                let col = [91,140,49];
+                if(t===1){ // plain: green gradient
+                    col = lerpColor(PALETTES.plain_low, PALETTES.plain_high, elev);
+                } else if(t===2){ // desert-ish: sandy gradient
+                    col = lerpColor(PALETTES.desert_low, PALETTES.desert_high, elev);
+                } else if(t===3){ // mountain: rocky->snow
+                    col = lerpColor(PALETTES.mountain_low, PALETTES.mountain_high, Math.min(1, (elev-0.65)/0.35));
+                }
+                data[p]=col[0]; data[p+1]=col[1]; data[p+2]=col[2]; data[p+3]=255;
+            } else {
+                // sea gradient: use proximity to coast via simple sampling of elevation array nearby
+                // approximate shallow/deep by sampling surrounding land presence
+                data[p]=PALETTES.sea_deep[0]; data[p+1]=PALETTES.sea_deep[1]; data[p+2]=PALETTES.sea_deep[2]; data[p+3]=255;
+            }
+        }
+        ownersChanged=false;
     }
 
+    function draw(){
+        updateArmies();
+        if(ownersChanged){ rebuildImageData(); ctx.putImageData(imgData,0,0); } else { ctx.putImageData(imgData,0,0); }
+        // draw armies
+        activeArmies.forEach(a=>{ ctx.fillStyle='#000000'; ctx.fillRect(Math.floor(a.x)-1, Math.floor(a.y)-1, 3, 3); ctx.fillStyle = playerColors[a.owner] ? `rgb(${playerColors[a.owner].join(',')})` : '#ffffff'; ctx.fillRect(Math.floor(a.x), Math.floor(a.y), 1, 1); });
+        requestAnimationFrame(draw);
+    }
     draw();
     </script>
 </body>

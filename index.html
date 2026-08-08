@@ -1,841 +1,451 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<title>STRATOVEX - Carte mondiale</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>STRATOVEX</title>
 
 <style>
-* {
-    box-sizing: border-box;
+*{
+    box-sizing:border-box;
 }
 
-body {
-    background: #060a12;
-    color: white;
-    font-family: Segoe UI, Helvetica, Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    margin: 0;
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#060a12;
+    font-family:Arial,sans-serif;
 }
 
-#hud {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    width: 1000px;
-    margin-bottom: 8px;
-    background: #0f1724;
-    padding: 10px 18px;
-    border-radius: 6px;
-    border: 1px solid #1e2c40;
+#gameCanvas{
+    display:block;
+    width:100%;
+    height:100%;
 }
 
-.hud-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+#ui-bar{
+    position:fixed;
+    top:12px;
+    left:12px;
+    z-index:20;
+    display:flex;
+    gap:10px;
 }
 
-.stat-group {
-    display: flex;
-    gap: 15px;
-    font-weight: 700;
-    font-size: 13px;
+.stat-box{
+    background:rgba(15,23,42,.92);
+    color:white;
+    padding:9px 13px;
+    border:1px solid #334155;
+    border-radius:8px;
+    font-size:14px;
+    box-shadow:0 4px 15px rgba(0,0,0,.35);
 }
 
-.controls-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #182538;
-    padding: 6px;
-    border-radius: 6px;
+.dot{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:6px;
 }
 
-.btn {
-    background: #2a3d58;
-    color: white;
-    border: 1px solid #3d5475;
-    padding: 5px 10px;
-    font-weight: 700;
-    font-size: 11px;
-    cursor: pointer;
-    border-radius: 3px;
-}
-
-.btn.active {
-    background: #2288ff;
-    border-color: #55a3ff;
-}
-
-canvas {
-    border: 2px solid #1e2c40;
-    border-radius: 4px;
-    background: #0d1117;
-    cursor: crosshair;
-    box-shadow: 0 10px 30px rgba(0,0,0,.9);
-}
-
-#spawnNotice {
-    position: absolute;
-    top: 18px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(22,101,216,.95);
-    color: white;
-    padding: 10px 20px;
-    border-radius: 30px;
-    font-weight: 700;
-    font-size: 14px;
-    pointer-events: none;
-    box-shadow: 0 4px 15px rgba(0,0,0,.5);
-    border: 1px solid #55a3ff;
-    z-index: 1000;
-}
-
-.sliders {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.slider {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #ddd;
-    font-size: 11px;
-}
-
-input[type=range] {
-    width: 120px;
-}
-
-#loading {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    font-weight: bold;
-    z-index: 2000;
-}
-
-.hidden {
-    display: none !important;
+#help{
+    position:fixed;
+    right:12px;
+    bottom:12px;
+    z-index:20;
+    background:rgba(15,23,42,.9);
+    color:#cbd5e1;
+    padding:9px 12px;
+    border-radius:8px;
+    font-size:12px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="loading">🌍 Chargement du monde...</div>
+<div id="ui-bar">
 
-<div id="spawnNotice">
-    📍 Clique sur la carte pour choisir ta position de départ !
-</div>
-
-<div id="hud">
-
-    <div class="hud-row">
-
-        <div class="stat-group">
-
-            <div>
-                💰 Or:
-                <span id="goldVal" style="color:#ffd700">200</span>
-            </div>
-
-            <div>
-                ⚔️ Armées:
-                <span id="reserveVal" style="color:#55ff55">300</span>
-            </div>
-
-            <div>
-                🎨 Ta couleur:
-                <span id="myColorDot"
-                      style="
-                      display:inline-block;
-                      width:12px;
-                      height:12px;
-                      border-radius:2px;
-                      vertical-align:middle">
-                </span>
-            </div>
-
-        </div>
-
-        <div id="actionMsg"
-             style="color:#ffcc00;font-weight:700;font-size:13px">
-            Choisis ton emplacement de départ !
-        </div>
-
+    <div class="stat-box">
+        <span class="dot" style="background:#38bdf8;"></span>
+        Joueur :
+        <span id="player-count">1</span>
+        cases
     </div>
 
-    <div class="hud-row">
-
-        <div class="controls-group">
-
-            <span style="font-size:11px;font-weight:700;color:#aaa">
-                POURCENTAGE D'ENVOI :
-            </span>
-
-            <button class="btn send-btn" data-pct="10">10%</button>
-            <button class="btn send-btn" data-pct="25">25%</button>
-            <button class="btn send-btn active" data-pct="50">50%</button>
-            <button class="btn send-btn" data-pct="100">100%</button>
-
-        </div>
-
-        <div style="font-size:12px;font-weight:700;color:#ffd700">
-            Troupes sélectionnées :
-            <span id="sendVal" style="color:#fff">150</span>
-        </div>
-
-    </div>
-
-    <div class="hud-row">
-
-        <div class="sliders">
-
-            <div class="slider">
-                Intensité
-                <input id="intensity"
-                       type="range"
-                       min="0"
-                       max="200"
-                       value="100">
-            </div>
-
-            <div class="slider">
-                Montagnes
-                <input id="mountainT"
-                       type="range"
-                       min="0"
-                       max="100"
-                       value="72">
-            </div>
-
-            <div class="slider">
-                Plateaux
-                <input id="plateauT"
-                       type="range"
-                       min="0"
-                       max="100"
-                       value="45">
-            </div>
-
-            <div class="slider">
-                Côte
-                <input id="coastFalloff"
-                       type="range"
-                       min="2"
-                       max="120"
-                       value="30">
-            </div>
-
-        </div>
-
-        <div style="font-size:12px;color:#aaa">
-            STRATOVEX
-        </div>
-
+    <div class="stat-box">
+        <span class="dot" style="background:#f43f5e;"></span>
+        IA :
+        <span id="ai-count">1</span>
+        cases
     </div>
 
 </div>
 
-<canvas
-    id="gameCanvas"
-    width="1000"
-    height="500">
-</canvas>
+<div id="help">
+    Clique sur une case ennemie voisine pour attaquer
+</div>
+
+<canvas id="gameCanvas"></canvas>
 
 <script>
 
-"use strict";
-
 /* =========================================================
-   STRATOVEX
-   VERSION RÉPARÉE
-========================================================= */
+   CONFIGURATION
+   ========================================================= */
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const CONFIG = {
 
-const cols = 1000;
-const rows = 500;
+    GRID_SIZE:30,
 
-canvas.width = cols;
-canvas.height = rows;
+    TICK_RATE_ECONOMY:500,
 
+    TICK_RATE_AI:800,
 
-/* =========================================================
-   VARIABLES
-========================================================= */
+    STARTING_TROOPS:20,
 
-let gameStarted = false;
+    MAX_TROOPS_DEFAULT:100,
 
-let gold = 200;
-let reserveTroops = 300;
-let sendPercentage = 50;
+    TROOP_REGEN_RATE:0.5,
 
-let ownersChanged = true;
+    FACTIONS:{
+        NEUTRAL:0,
+        PLAYER:1,
+        AI_EASY:2,
+        AI_HARD:3
+    },
 
-const world =
-    new Uint8Array(cols * rows);
+    COLORS:{
 
-const terrain =
-    new Uint8Array(cols * rows);
+        0:{
+            bg:'#1e293b',
+            border:'#334155',
+            text:'#64748b'
+        },
 
-const owners =
-    new Uint8Array(cols * rows);
+        1:{
+            bg:'#0284c7',
+            border:'#38bdf8',
+            text:'#ffffff'
+        },
 
-const elevation =
-    new Float32Array(cols * rows);
+        2:{
+            bg:'#be123c',
+            border:'#f43f5e',
+            text:'#ffffff'
+        },
 
-let activeArmies = [];
+        3:{
+            bg:'#7c3aed',
+            border:'#a78bfa',
+            text:'#ffffff'
+        }
 
-let playerColors = {};
+    },
 
+    TERRAINS:{
 
-/* =========================================================
-   COULEURS JOUEURS
-========================================================= */
+        PLAIN:{
+            cost:1,
+            defense:1.0,
+            maxTroopsMod:1.0
+        },
 
-function generateRandomColor() {
+        FOREST:{
+            cost:2,
+            defense:1.5,
+            maxTroopsMod:1.2
+        },
 
-    const h = Math.floor(Math.random() * 360);
-    const s = 75;
-    const l = 50;
+        MOUNTAIN:{
+            cost:3,
+            defense:2.0,
+            maxTroopsMod:1.5
+        }
 
-    const c =
-        (1 - Math.abs(2 * l / 100 - 1)) *
-        (s / 100);
-
-    const x =
-        c *
-        (1 - Math.abs((h / 60) % 2 - 1));
-
-    const m =
-        l / 100 - c / 2;
-
-    let r = 0;
-    let g = 0;
-    let b = 0;
-
-    if (h < 60) {
-        r = c;
-        g = x;
     }
-    else if (h < 120) {
-        r = x;
-        g = c;
-    }
-    else if (h < 180) {
-        g = c;
-        b = x;
-    }
-    else if (h < 240) {
-        g = x;
-        b = c;
-    }
-    else if (h < 300) {
-        r = x;
-        b = c;
-    }
-    else {
-        r = c;
-        b = x;
-    }
-
-    return [
-        Math.round((r + m) * 255),
-        Math.round((g + m) * 255),
-        Math.round((b + m) * 255)
-    ];
-}
-
-
-function assignColors() {
-
-    playerColors[1] = generateRandomColor();
-    playerColors[2] = generateRandomColor();
-    playerColors[3] = generateRandomColor();
-
-    document.getElementById("myColorDot")
-        .style.background =
-        `rgb(${playerColors[1].join(",")})`;
-}
-
-assignColors();
-
-
-/* =========================================================
-   PALETTES
-========================================================= */
-
-const PALETTES = {
-
-    plain_low: [34, 95, 34],
-    plain_high: [190, 227, 150],
-
-    desert_low: [190, 160, 90],
-    desert_high: [255, 245, 157],
-
-    mountain_low: [90, 90, 90],
-    mountain_high: [245, 245, 245],
-
-    sea_deep: [8, 18, 34],
-    sea_shallow: [40, 100, 170]
-};
-
-
-/* =========================================================
-   OUTILS
-========================================================= */
-
-function lon2x(lon) {
-
-    return Math.floor(
-        (lon + 180) / 360 * cols
-    );
-}
-
-
-function lat2y(lat) {
-
-    return Math.floor(
-        (90 - lat) / 180 * rows
-    );
-}
-
-
-function lerp(a, b, t) {
-
-    return a + (b - a) * t;
-}
-
-
-function lerpColor(a, b, t) {
-
-    return [
-        Math.round(lerp(a[0], b[0], t)),
-        Math.round(lerp(a[1], b[1], t)),
-        Math.round(lerp(a[2], b[2], t))
-    ];
-}
-
-
-/* =========================================================
-   PARAMÈTRES
-========================================================= */
-
-const PARAMS = {
-
-    intensity: 1,
-    mountainT: 0.72,
-    plateauT: 0.45,
-    coastFalloff: 30
 
 };
 
 
 /* =========================================================
-   HEIGHTMAP
-========================================================= */
+   CARTE / CELLULE
+   ========================================================= */
 
-const HEIGHTMAP_CANDIDATES = [
+class Cell{
 
-    "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_2048.png",
+    constructor(x,y){
 
-    "https://raw.githubusercontent.com/joanby/fluid-earth/master/data/world_topo_2048.png",
+        this.x=x;
 
-    "https://raw.githubusercontent.com/denoland/deno_website2/master/static/land_ocean_ice_2048.png"
+        this.y=y;
 
-];
+        this.owner=
+            CONFIG.FACTIONS.NEUTRAL;
+
+        this.troops=5;
+
+        this.maxTroops=
+            CONFIG.MAX_TROOPS_DEFAULT;
+
+        this.terrain='PLAIN';
+
+        this.building='NONE';
+
+    }
 
 
-/* =========================================================
-   GEOJSON
-========================================================= */
+    draw(ctx){
 
-const GEOJSON_URL =
-    "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
+        const px=
+            this.x*CONFIG.GRID_SIZE;
+
+        const py=
+            this.y*CONFIG.GRID_SIZE;
+
+        const color=
+            CONFIG.COLORS[this.owner];
+
+        let fillBg=color.bg;
 
 
-/* =========================================================
-   NOISE
-========================================================= */
+        if(
+            this.terrain==='FOREST' &&
+            this.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
 
-function pseudoNoise(x, y, scale) {
+            fillBg='#14532d';
 
-    return (
-        Math.sin(x * scale) +
-        Math.cos(y * scale) +
-        Math.sin((x + y) * scale * .5)
-    ) / 3;
+        }
+
+        else if(
+            this.terrain==='MOUNTAIN' &&
+            this.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
+
+            fillBg='#334155';
+
+        }
+
+
+        ctx.fillStyle=fillBg;
+
+        ctx.fillRect(
+            px+1,
+            py+1,
+            CONFIG.GRID_SIZE-2,
+            CONFIG.GRID_SIZE-2
+        );
+
+
+        ctx.strokeStyle=color.border;
+
+        ctx.lineWidth=1;
+
+        ctx.strokeRect(
+            px+1,
+            py+1,
+            CONFIG.GRID_SIZE-2,
+            CONFIG.GRID_SIZE-2
+        );
+
+
+        if(this.troops>0){
+
+            ctx.fillStyle=color.text;
+
+            ctx.font='10px Arial';
+
+            ctx.textAlign='center';
+
+            ctx.textBaseline='middle';
+
+            ctx.fillText(
+                Math.floor(this.troops),
+                px+CONFIG.GRID_SIZE/2,
+                py+CONFIG.GRID_SIZE/2
+            );
+
+        }
+
+    }
 
 }
 
 
 /* =========================================================
-   CHARGER HEIGHTMAP
-========================================================= */
+   GESTIONNAIRE DE CARTE
+   ========================================================= */
 
-async function fetchHeightmap() {
+class MapManager{
 
-    for (const url of HEIGHTMAP_CANDIDATES) {
+    constructor(width,height){
 
-        try {
-
-            const img = new Image();
-
-            img.crossOrigin = "anonymous";
-
-            await new Promise((resolve, reject) => {
-
-                img.onload = resolve;
-
-                img.onerror = reject;
-
-                img.src = url;
-
-            });
-
-            console.log(
-                "Heightmap chargée :",
-                url
+        this.cols=
+            Math.floor(
+                width/CONFIG.GRID_SIZE
             );
 
-            return img;
-
-        }
-        catch (error) {
-
-            console.warn(
-                "Heightmap impossible à charger",
-                url
+        this.rows=
+            Math.floor(
+                height/CONFIG.GRID_SIZE
             );
 
-        }
-
-    }
-
-    return null;
-}
-
-
-/* =========================================================
-   CRÉER LE MONDE
-========================================================= */
-
-async function buildWorld() {
-
-    let geoLoaded = false;
-
-    try {
-
-        const response =
-            await fetch(GEOJSON_URL);
-
-        if (!response.ok) {
-            throw new Error(
-                "GeoJSON HTTP " +
-                response.status
-            );
-        }
-
-        const geo =
-            await response.json();
-
-        const off =
-            document.createElement("canvas");
-
-        off.width = cols;
-        off.height = rows;
-
-        const octx =
-            off.getContext("2d");
-
-        octx.fillStyle = "#000";
-        octx.fillRect(
-            0,
-            0,
-            cols,
-            rows
-        );
-
-        octx.fillStyle = "#fff";
-
-        geo.features.forEach(feature => {
-
-            const geometry =
-                feature.geometry;
-
-            if (!geometry)
-                return;
-
-            function drawRing(ring) {
-
-                if (!ring.length)
-                    return;
-
-                octx.beginPath();
-
-                ring.forEach((point, i) => {
-
-                    const x =
-                        lon2x(point[0]);
-
-                    const y =
-                        lat2y(point[1]);
-
-                    if (i === 0)
-                        octx.moveTo(x, y);
-                    else
-                        octx.lineTo(x, y);
-
-                });
-
-                octx.closePath();
-                octx.fill();
-
-            }
-
-            if (geometry.type === "Polygon") {
-
-                geometry.coordinates
-                    .forEach(drawRing);
-
-            }
-            else if (
-                geometry.type === "MultiPolygon"
-            ) {
-
-                geometry.coordinates
-                    .forEach(polygon => {
-
-                        polygon.forEach(drawRing);
-
-                    });
-
-            }
-
-        });
-
-        const image =
-            octx.getImageData(
-                0,
-                0,
-                cols,
-                rows
-            ).data;
-
-        for (
-            let i = 0;
-            i < cols * rows;
-            i++
-        ) {
-
-            const p = i * 4;
-
-            world[i] =
-                image[p] > 128 ? 1 : 0;
-
-        }
-
-        geoLoaded = true;
-
-    }
-    catch (error) {
-
-        console.warn(
-            "GeoJSON impossible à charger.",
-            error
-        );
+        this.grid=[];
 
     }
 
 
-    /* =====================================================
-       FALLBACK SI GEOJSON INDISPONIBLE
-    ===================================================== */
+    init(){
 
-    if (!geoLoaded) {
-
-        console.log(
-            "Création d'une carte de secours."
-        );
-
-        for (let y = 0; y < rows; y++) {
-
-            for (let x = 0; x < cols; x++) {
-
-                const nx = x / cols;
-                const ny = y / rows;
-
-                const continent =
-                    Math.sin(nx * 12) +
-                    Math.sin(ny * 8) +
-                    Math.sin((nx + ny) * 18);
-
-                world[y * cols + x] =
-                    continent > 1.2 ? 1 : 0;
-
-            }
-
-        }
-
-    }
+        this.grid=[];
 
 
-    /* =====================================================
-       HEIGHTMAP
-    ===================================================== */
-
-    const heightImg =
-        await fetchHeightmap();
-
-    if (heightImg) {
-
-        try {
-
-            const hoff =
-                document.createElement("canvas");
-
-            hoff.width = cols;
-            hoff.height = rows;
-
-            const hctx =
-                hoff.getContext("2d");
-
-            hctx.drawImage(
-                heightImg,
-                0,
-                0,
-                cols,
-                rows
-            );
-
-            const data =
-                hctx.getImageData(
-                    0,
-                    0,
-                    cols,
-                    rows
-                ).data;
-
-            for (
-                let i = 0;
-                i < cols * rows;
-                i++
-            ) {
-
-                const p = i * 4;
-
-                const gray =
-                    (
-                        data[p] +
-                        data[p + 1] +
-                        data[p + 2]
-                    ) / 3;
-
-                elevation[i] =
-                    gray / 255;
-
-            }
-
-        }
-        catch (error) {
-
-            console.warn(
-                "Impossible de lire la heightmap."
-            );
-
-            createProceduralElevation();
-
-        }
-
-    }
-    else {
-
-        createProceduralElevation();
-
-    }
-
-
-    rebuildTerrain();
-
-    owners.fill(0);
-
-    ownersChanged = true;
-
-}
-
-
-/* =========================================================
-   ÉLÉVATION PROCÉDURALE
-========================================================= */
-
-function createProceduralElevation() {
-
-    for (
-        let y = 0;
-        y < rows;
-        y++
-    ) {
-
-        for (
-            let x = 0;
-            x < cols;
+        for(
+            let x=0;
+            x<this.cols;
             x++
-        ) {
+        ){
 
-            const i =
-                y * cols + x;
+            this.grid[x]=[];
 
-            if (world[i] === 0) {
 
-                elevation[i] = 0;
-                continue;
+            for(
+                let y=0;
+                y<this.rows;
+                y++
+            ){
+
+                const cell=
+                    new Cell(x,y);
+
+                const rand=
+                    Math.random();
+
+
+                if(rand<0.08){
+
+                    cell.terrain=
+                        'MOUNTAIN';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT *
+                        CONFIG.TERRAINS.MOUNTAIN.maxTroopsMod;
+
+                }
+
+                else if(rand<0.20){
+
+                    cell.terrain=
+                        'FOREST';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT *
+                        CONFIG.TERRAINS.FOREST.maxTroopsMod;
+
+                }
+
+                else{
+
+                    cell.terrain=
+                        'PLAIN';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT;
+
+                }
+
+
+                this.grid[x][y]=cell;
 
             }
 
-            const noise =
-                pseudoNoise(
-                    x,
-                    y,
-                    .015
-                );
+        }
 
-            const noise2 =
-                pseudoNoise(
-                    x,
-                    y,
-                    .04
-                );
 
-            let value =
-                .5 +
-                noise * .25 +
-                noise2 * .15;
+        if(
+            this.cols>=5 &&
+            this.rows>=5
+        ){
 
-            elevation[i] =
-                Math.max(
-                    0,
-                    Math.min(
-                        1,
-                        value
-                    )
-                );
+            const playerCell=
+                this.grid[2][2];
+
+            playerCell.owner=
+                CONFIG.FACTIONS.PLAYER;
+
+            playerCell.troops=
+                CONFIG.STARTING_TROOPS;
+
+
+            const aiCell=
+                this.grid[
+                    this.cols-3
+                ][
+                    this.rows-3
+                ];
+
+            aiCell.owner=
+                CONFIG.FACTIONS.AI_EASY;
+
+            aiCell.troops=
+                CONFIG.STARTING_TROOPS;
 
         }
+
+    }
+
+
+    getNeighbors(x,y){
+
+        const neighbors=[];
+
+        const dirs=[
+
+            [0,-1],
+
+            [0,1],
+
+            [-1,0],
+
+            [1,0]
+
+        ];
+
+
+        for(
+            const [dx,dy] of dirs
+        ){
+
+            const nx=x+dx;
+
+            const ny=y+dy;
+
+
+            if(
+                nx>=0 &&
+                nx<this.cols &&
+                ny>=0 &&
+                ny<this.rows
+            ){
+
+                neighbors.push(
+                    this.grid[nx][ny]
+                );
+
+            }
+
+        }
+
+
+        return neighbors;
 
     }
 
@@ -843,674 +453,302 @@ function createProceduralElevation() {
 
 
 /* =========================================================
-   TERRAIN
-========================================================= */
+   BÂTIMENTS
+   ========================================================= */
 
-function rebuildTerrain() {
+class BuildingManager{
 
-    let sum = 0;
-    let count = 0;
+    constructor(){
 
-    for (
-        let i = 0;
-        i < cols * rows;
-        i++
-    ) {
+        this.TYPES={
 
-        if (world[i] === 1) {
+            NONE:{
+                name:'Aucun',
+                cost:0,
+                productionBonus:1.0,
+                defenseBonus:1.0
+            },
 
-            sum += elevation[i];
-            count++;
+            FACTORY:{
+                name:'Usine',
+                cost:50,
+                productionBonus:2.0,
+                defenseBonus:1.2
+            },
 
-        }
+            TOWER:{
+                name:'Tour de Défense',
+                cost:40,
+                productionBonus:0.5,
+                defenseBonus:2.5
+            },
+
+            MINE:{
+                name:'Mine',
+                cost:60,
+                productionBonus:1.0,
+                defenseBonus:1.0
+            }
+
+        };
 
     }
 
-    const mean =
-        count ? sum / count : .5;
+
+    build(
+        cell,
+        buildingKey,
+        playerGold
+    ){
+
+        const buildingData=
+            this.TYPES[buildingKey];
 
 
-    for (
-        let i = 0;
-        i < cols * rows;
-        i++
-    ) {
+        if(!buildingData){
 
-        if (world[i] === 0) {
-
-            terrain[i] = 0;
-            continue;
+            return{
+                success:false,
+                cost:0
+            };
 
         }
 
-        let value =
-            mean +
-            (elevation[i] - mean) *
-            PARAMS.intensity;
 
-        value =
+        if(
+            playerGold>=
+            buildingData.cost
+        ){
+
+            cell.building=
+                buildingKey;
+
+
+            cell.maxTroops=
+                Math.floor(
+
+                    CONFIG.MAX_TROOPS_DEFAULT *
+
+                    CONFIG.TERRAINS[
+                        cell.terrain
+                    ].maxTroopsMod *
+
+                    buildingData.defenseBonus
+
+                );
+
+
+            return{
+                success:true,
+                cost:buildingData.cost
+            };
+
+        }
+
+
+        return{
+            success:false,
+            cost:0
+        };
+
+    }
+
+
+    getProductionMultiplier(cell){
+
+        if(
+            !cell.building ||
+            cell.building==='NONE'
+        ){
+
+            return 1.0;
+
+        }
+
+
+        return this.TYPES[
+            cell.building
+        ].productionBonus;
+
+    }
+
+}
+
+
+/* =========================================================
+   UNITÉS / COMBAT
+   ========================================================= */
+
+class UnitManager{
+
+    constructor(buildingManager){
+
+        this.buildingManager=
+            buildingManager;
+
+    }
+
+
+    attack(
+        sourceCell,
+        targetCell
+    ){
+
+        if(
+            sourceCell.troops<=1
+        ){
+
+            return false;
+
+        }
+
+
+        if(
+            sourceCell.owner===
+            targetCell.owner
+        ){
+
+            return false;
+
+        }
+
+
+        const terrainDef=
+            CONFIG.TERRAINS[
+                targetCell.terrain
+            ]
+            ?
+            CONFIG.TERRAINS[
+                targetCell.terrain
+            ].defense
+            :
+            1.0;
+
+
+        let buildingDef=1.0;
+
+
+        if(
+            targetCell.building &&
+            this.buildingManager.TYPES[
+                targetCell.building
+            ]
+        ){
+
+            buildingDef=
+                this.buildingManager
+                .TYPES[
+                    targetCell.building
+                ]
+                .defenseBonus;
+
+        }
+
+
+        const totalDefenseMultiplier=
+            terrainDef*buildingDef;
+
+
+        const attackPower=
+            Math.floor(
+                sourceCell.troops-1
+            );
+
+
+        sourceCell.troops=1;
+
+
+        const effectiveDefense=
+            targetCell.troops*
+            totalDefenseMultiplier;
+
+
+        if(
+            attackPower>
+            effectiveDefense
+        ){
+
+            targetCell.troops=
+                Math.floor(
+                    attackPower-
+                    effectiveDefense
+                );
+
+
+            targetCell.owner=
+                sourceCell.owner;
+
+
+            return true;
+
+        }
+
+
+        targetCell.troops=
             Math.max(
                 0,
-                Math.min(
-                    1,
-                    value
-                )
-            );
-
-        elevation[i] = value;
-
-        if (
-            value >
-            PARAMS.mountainT
-        ) {
-
-            terrain[i] = 3;
-
-        }
-        else if (
-            value >
-            PARAMS.plateauT
-        ) {
-
-            terrain[i] = 2;
-
-        }
-        else {
-
-            terrain[i] = 1;
-
-        }
-
-    }
-
-    ownersChanged = true;
-
-}
-
-
-/* =========================================================
-   SLIDERS
-========================================================= */
-
-document.getElementById("intensity")
-.addEventListener("input", e => {
-
-    PARAMS.intensity =
-        Number(e.target.value) / 100;
-
-    rebuildTerrain();
-
-});
-
-
-document.getElementById("mountainT")
-.addEventListener("input", e => {
-
-    PARAMS.mountainT =
-        Number(e.target.value) / 100;
-
-    rebuildTerrain();
-
-});
-
-
-document.getElementById("plateauT")
-.addEventListener("input", e => {
-
-    PARAMS.plateauT =
-        Number(e.target.value) / 100;
-
-    rebuildTerrain();
-
-});
-
-
-document.getElementById("coastFalloff")
-.addEventListener("input", e => {
-
-    PARAMS.coastFalloff =
-        Number(e.target.value);
-
-    ownersChanged = true;
-
-});
-
-
-/* =========================================================
-   BOUTONS POURCENTAGE
-========================================================= */
-
-document
-.querySelectorAll(".send-btn")
-.forEach(button => {
-
-    button.addEventListener("click", () => {
-
-        sendPercentage =
-            Number(
-                button.dataset.pct
-            );
-
-        document
-        .querySelectorAll(".send-btn")
-        .forEach(b =>
-            b.classList.remove("active")
-        );
-
-        button.classList.add("active");
-
-        updateHUD();
-
-    });
-
-});
-
-
-/* =========================================================
-   SPAWN
-========================================================= */
-
-function setSpawnArea(
-    row,
-    col,
-    ownerId,
-    radius = 8
-) {
-
-    for (
-        let dr = -radius;
-        dr <= radius;
-        dr++
-    ) {
-
-        for (
-            let dc = -radius;
-            dc <= radius;
-            dc++
-        ) {
-
-            const nr =
-                row + dr;
-
-            const nc =
-                col + dc;
-
-            if (
-                nr < 0 ||
-                nr >= rows ||
-                nc < 0 ||
-                nc >= cols
-            )
-                continue;
-
-            const distance =
-                Math.hypot(
-                    dr,
-                    dc
-                );
-
-            if (distance > radius)
-                continue;
-
-            const index =
-                nr * cols + nc;
-
-            if (world[index] === 1) {
-
-                owners[index] =
-                    ownerId;
-
-            }
-
-        }
-
-    }
-
-    ownersChanged = true;
-
-}
-
-
-/* =========================================================
-   BOTS
-========================================================= */
-
-function spawnOtherBots(
-    playerR,
-    playerC
-) {
-
-    let spawned = 0;
-    let attempts = 0;
-
-    while (
-        spawned < 2 &&
-        attempts < 3000
-    ) {
-
-        attempts++;
-
-        const row =
-            Math.floor(
-                Math.random() * rows
-            );
-
-        const col =
-            Math.floor(
-                Math.random() * cols
-            );
-
-        const index =
-            row * cols + col;
-
-        const distance =
-            Math.hypot(
-                col - playerC,
-                row - playerR
-            );
-
-        if (
-            world[index] === 1 &&
-            owners[index] === 0 &&
-            distance > 150
-        ) {
-
-            setSpawnArea(
-                row,
-                col,
-                spawned === 0 ? 2 : 3,
-                6
-            );
-
-            spawned++;
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   TROUVER TERRITOIRE
-========================================================= */
-
-function findClosestTerritoryPoint(
-    targetX,
-    targetY,
-    ownerId
-) {
-
-    let closest = null;
-    let minDistance = Infinity;
-
-    for (
-        let y = 0;
-        y < rows;
-        y += 5
-    ) {
-
-        for (
-            let x = 0;
-            x < cols;
-            x += 5
-        ) {
-
-            const index =
-                y * cols + x;
-
-            if (
-                owners[index] !== ownerId
-            )
-                continue;
-
-            const distance =
-                Math.hypot(
-                    x - targetX,
-                    y - targetY
-                );
-
-            if (
-                distance < minDistance
-            ) {
-
-                minDistance = distance;
-
-                closest = {
-                    x,
-                    y
-                };
-
-            }
-
-        }
-
-    }
-
-    return closest;
-
-}
-
-
-/* =========================================================
-   CLIC CARTE
-========================================================= */
-
-canvas.addEventListener(
-    "click",
-    event => {
-
-        const rect =
-            canvas.getBoundingClientRect();
-
-        const x =
-            Math.floor(
-                (event.clientX -
-                 rect.left) *
-                cols /
-                rect.width
-            );
-
-        const y =
-            Math.floor(
-                (event.clientY -
-                 rect.top) *
-                rows /
-                rect.height
-            );
-
-        if (
-            x < 0 ||
-            x >= cols ||
-            y < 0 ||
-            y >= rows
-        )
-            return;
-
-        const index =
-            y * cols + x;
-
-
-        /* =========================
-           SPAWN
-        ========================= */
-
-        if (!gameStarted) {
-
-            if (world[index] === 1) {
-
-                setSpawnArea(
-                    y,
-                    x,
-                    1,
-                    8
-                );
-
-                spawnOtherBots(
-                    y,
-                    x
-                );
-
-                gameStarted = true;
-
-                document
-                .getElementById(
-                    "spawnNotice"
-                )
-                .style.display = "none";
-
-                document
-                .getElementById(
-                    "actionMsg"
-                )
-                .innerText =
-                    "🎮 Partie lancée !";
-
-                document
-                .getElementById(
-                    "actionMsg"
-                )
-                .style.color =
-                    "#88a0bc";
-
-                updateHUD();
-
-            }
-            else {
-
-                document
-                .getElementById(
-                    "actionMsg"
-                )
-                .innerText =
-                    "⚠️ Choisis une zone terrestre !";
-
-                document
-                .getElementById(
-                    "actionMsg"
-                )
-                .style.color =
-                    "#ff4444";
-
-            }
-
-            return;
-        }
-
-
-        /* =========================
-           ATTAQUE
-        ========================= */
-
-        if (
-            world[index] === 1 &&
-            owners[index] !== 1
-        ) {
-
-            const start =
-                findClosestTerritoryPoint(
-                    x,
-                    y,
-                    1
-                );
-
-            if (!start)
-                return;
-
-            let amount =
                 Math.floor(
-                    reserveTroops *
-                    sendPercentage /
-                    100
-                );
-
-            amount =
-                Math.max(
-                    1,
-                    amount
-                );
-
-            if (
-                amount >
-                reserveTroops
-            ) {
-
-                amount =
-                    reserveTroops;
-
-            }
-
-            if (amount <= 0)
-                return;
-
-            reserveTroops -= amount;
-
-            activeArmies.push({
-
-                x: start.x + .5,
-                y: start.y + .5,
-
-                targetX: x + .5,
-                targetY: y + .5,
-
-                count: amount,
-
-                owner: 1
-
-            });
-
-            document
-            .getElementById(
-                "actionMsg"
-            )
-            .innerText =
-                `⚔️ ${amount} troupes envoyées !`;
-
-            ownersChanged = true;
-
-            updateHUD();
-
-        }
-
-    }
-);
-
-
-/* =========================================================
-   ARMÉES
-========================================================= */
-
-function updateArmies() {
-
-    for (
-        let i = activeArmies.length - 1;
-        i >= 0;
-        i--
-    ) {
-
-        const army =
-            activeArmies[i];
-
-        const x =
-            Math.floor(army.x);
-
-        const y =
-            Math.floor(army.y);
-
-        if (
-            x < 0 ||
-            x >= cols ||
-            y < 0 ||
-            y >= rows
-        ) {
-
-            activeArmies.splice(i, 1);
-            continue;
-
-        }
-
-        const index =
-            y * cols + x;
-
-        const terrainType =
-            terrain[index] || 1;
-
-        let speed = 0.9;
-
-        if (terrainType === 2)
-            speed *= .7;
-
-        if (terrainType === 3)
-            speed *= .35;
-
-        const dx =
-            army.targetX -
-            army.x;
-
-        const dy =
-            army.targetY -
-            army.y;
-
-        const distance =
-            Math.hypot(
-                dx,
-                dy
+                    effectiveDefense-
+                    attackPower
+                )
             );
 
 
-        if (
-            distance > .8 &&
-            army.count > 0
-        ) {
+        return false;
 
-            army.x +=
-                dx / distance *
-                speed;
+    }
 
-            army.y +=
-                dy / distance *
-                speed;
 
-            const newX =
-                Math.floor(army.x);
+    regenerateTroops(cell){
 
-            const newY =
-                Math.floor(army.y);
+        if(
+            cell.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
 
-            if (
-                newX >= 0 &&
-                newX < cols &&
-                newY >= 0 &&
-                newY < rows
-            ) {
+            return;
 
-                const newIndex =
-                    newY * cols +
-                    newX;
+        }
 
-                if (
-                    world[newIndex] === 1 &&
-                    owners[newIndex] !== army.owner
-                ) {
 
-                    owners[newIndex] =
-                        army.owner;
+        let prodBonus=1.0;
 
-                    /*
-                       Au lieu de perdre 1 soldat
-                       par pixel, on utilise une
-                       petite quantité proportionnelle
-                       à la taille de l'armée.
-                    */
 
-                    const loss =
-                        Math.max(
-                            1,
-                            Math.floor(
-                                army.count * .01
-                            )
-                        );
+        if(
+            this.buildingManager &&
+            cell.building
+        ){
 
-                    army.count -= loss;
+            prodBonus=
+                this.buildingManager
+                .getProductionMultiplier(
+                    cell
+                );
 
-                    ownersChanged = true;
+        }
 
-                }
+
+        if(
+            cell.troops<
+            cell.maxTroops
+        ){
+
+            cell.troops+=
+                CONFIG.TROOP_REGEN_RATE*
+                prodBonus;
+
+
+            if(
+                cell.troops>
+                cell.maxTroops
+            ){
+
+                cell.troops=
+                    cell.maxTroops;
 
             }
 
         }
-        else {
-
-            activeArmies.splice(i, 1);
-
-        }
-
-        if (army.count <= 0) {
-
-            activeArmies.splice(i, 1);
-
-        }
 
     }
 
@@ -1518,437 +756,491 @@ function updateArmies() {
 
 
 /* =========================================================
-   ÉCONOMIE
-========================================================= */
+   IA
+   ========================================================= */
 
-function countTerritory(ownerId) {
+class AIController{
 
-    let count = 0;
+    constructor(
+        factionId,
+        mapManager,
+        unitManager
+    ){
 
-    for (
-        let i = 0;
-        i < cols * rows;
-        i++
-    ) {
+        this.factionId=
+            factionId;
 
-        if (
-            owners[i] === ownerId
-        )
-            count++;
+        this.mapManager=
+            mapManager;
+
+        this.unitManager=
+            unitManager;
 
     }
 
-    return count;
 
-}
+    makeDecision(){
 
-
-setInterval(() => {
-
-    if (!gameStarted)
-        return;
-
-    const territory =
-        countTerritory(1);
-
-    reserveTroops +=
-        Math.max(
-            3,
-            Math.floor(
-                territory * .05
-            )
-        );
-
-    gold +=
-        Math.max(
-            1,
-            Math.floor(
-                territory * .02
-            )
-        );
-
-    updateHUD();
-
-}, 1000);
+        const aiCells=[];
 
 
-/* =========================================================
-   HUD
-========================================================= */
-
-function updateHUD() {
-
-    document
-    .getElementById("goldVal")
-    .innerText =
-        Math.floor(gold);
-
-    document
-    .getElementById("reserveVal")
-    .innerText =
-        Math.floor(reserveTroops);
-
-    document
-    .getElementById("sendVal")
-    .innerText =
-        Math.floor(
-            reserveTroops *
-            sendPercentage /
-            100
-        );
-
-}
-
-
-/* =========================================================
-   RENDU
-========================================================= */
-
-const imgData =
-    ctx.createImageData(
-        cols,
-        rows
-    );
-
-const data =
-    imgData.data;
-
-
-function rebuildImageData() {
-
-    for (
-        let y = 0;
-        y < rows;
-        y++
-    ) {
-
-        for (
-            let x = 0;
-            x < cols;
+        for(
+            let x=0;
+            x<this.mapManager.cols;
             x++
-        ) {
+        ){
 
-            const index =
-                y * cols + x;
+            for(
+                let y=0;
+                y<this.mapManager.rows;
+                y++
+            ){
 
-            const p =
-                index * 4;
-
-
-            /* =====================
-               TERRE
-            ===================== */
-
-            if (world[index] === 1) {
-
-                let color;
+                const cell=
+                    this.mapManager
+                    .grid[x][y];
 
 
-                /*
-                   IMPORTANT :
-                   On affiche maintenant
-                   la couleur du propriétaire.
-                */
+                if(
+                    cell.owner===
+                    this.factionId &&
+                    cell.troops>15
+                ){
 
-                if (
-                    owners[index] !== 0 &&
-                    playerColors[
-                        owners[index]
-                    ]
-                ) {
-
-                    const ownerColor =
-                        playerColors[
-                            owners[index]
-                        ];
-
-                    const elev =
-                        elevation[index];
-
-                    const brightness =
-                        .75 +
-                        elev * .25;
-
-                    color = [
-                        Math.min(
-                            255,
-                            ownerColor[0] *
-                            brightness
-                        ),
-
-                        Math.min(
-                            255,
-                            ownerColor[1] *
-                            brightness
-                        ),
-
-                        Math.min(
-                            255,
-                            ownerColor[2] *
-                            brightness
-                        )
-                    ];
+                    aiCells.push(cell);
 
                 }
-                else {
-
-                    const elev =
-                        elevation[index];
-
-                    const type =
-                        terrain[index] || 1;
-
-                    if (type === 1) {
-
-                        color =
-                            lerpColor(
-                                PALETTES.plain_low,
-                                PALETTES.plain_high,
-                                elev
-                            );
-
-                    }
-                    else if (type === 2) {
-
-                        const t =
-                            Math.max(
-                                0,
-                                Math.min(
-                                    1,
-                                    (
-                                        elev -
-                                        PARAMS.plateauT
-                                    ) /
-                                    (
-                                        1 -
-                                        PARAMS.plateauT
-                                    )
-                                )
-                            );
-
-                        color =
-                            lerpColor(
-                                PALETTES.desert_low,
-                                PALETTES.desert_high,
-                                t
-                            );
-
-                    }
-                    else {
-
-                        const t =
-                            Math.max(
-                                0,
-                                Math.min(
-                                    1,
-                                    (
-                                        elev -
-                                        PARAMS.mountainT
-                                    ) /
-                                    (
-                                        1 -
-                                        PARAMS.mountainT
-                                    )
-                                )
-                            );
-
-                        color =
-                            lerpColor(
-                                PALETTES.mountain_low,
-                                PALETTES.mountain_high,
-                                t
-                            );
-
-                    }
-
-                }
-
-
-                data[p] =
-                    Math.round(color[0]);
-
-                data[p + 1] =
-                    Math.round(color[1]);
-
-                data[p + 2] =
-                    Math.round(color[2]);
-
-                data[p + 3] = 255;
-
-            }
-
-
-            /* =====================
-               MER
-            ===================== */
-
-            else {
-
-                const depth =
-                    Math.min(
-                        1,
-                        y / rows
-                    );
-
-                const sea =
-                    lerpColor(
-                        PALETTES.sea_shallow,
-                        PALETTES.sea_deep,
-                        depth
-                    );
-
-                data[p] =
-                    sea[0];
-
-                data[p + 1] =
-                    sea[1];
-
-                data[p + 2] =
-                    sea[2];
-
-                data[p + 3] =
-                    255;
 
             }
 
         }
 
-    }
 
-    ownersChanged = false;
+        if(
+            aiCells.length===0
+        ){
+
+            return;
+
+        }
+
+
+        aiCells.sort(
+            (a,b)=>
+                b.troops-a.troops
+        );
+
+
+        const sourceCell=
+            aiCells[0];
+
+
+        const neighbors=
+            this.mapManager
+            .getNeighbors(
+                sourceCell.x,
+                sourceCell.y
+            );
+
+
+        const targetable=
+            neighbors.filter(
+                c=>
+                    c.owner!==
+                    this.factionId
+            );
+
+
+        if(
+            targetable.length===0
+        ){
+
+            return;
+
+        }
+
+
+        targetable.sort(
+            (a,b)=>
+                a.troops-b.troops
+        );
+
+
+        const targetCell=
+            targetable[0];
+
+
+        this.unitManager.attack(
+            sourceCell,
+            targetCell
+        );
+
+    }
 
 }
 
 
 /* =========================================================
-   DESSIN
-========================================================= */
+   MOTEUR DU JEU
+   ========================================================= */
 
-function draw() {
+class GameEngine{
 
-    updateArmies();
+    constructor(){
 
-    if (ownersChanged) {
+        this.canvas=
+            document.getElementById(
+                'gameCanvas'
+            );
 
-        rebuildImageData();
+
+        this.ctx=
+            this.canvas.getContext(
+                '2d'
+            );
+
+
+        this.buildingManager=
+            new BuildingManager();
+
+
+        this.unitManager=
+            new UnitManager(
+                this.buildingManager
+            );
+
+
+        this.mapManager=
+            new MapManager(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+
+        this.aiController=
+            new AIController(
+                CONFIG.FACTIONS.AI_EASY,
+                this.mapManager,
+                this.unitManager
+            );
+
+
+        this.init();
 
     }
 
-    ctx.putImageData(
-        imgData,
-        0,
-        0
-    );
+
+    init(){
+
+        this.resizeCanvas();
 
 
-    /* ARMÉES */
-
-    activeArmies.forEach(army => {
-
-        const x =
-            Math.floor(army.x);
-
-        const y =
-            Math.floor(army.y);
-
-        const color =
-            playerColors[
-                army.owner
-            ] || [255,255,255];
-
-
-        /*
-           Ombre
-        */
-
-        ctx.fillStyle =
-            "#000";
-
-        ctx.beginPath();
-
-        ctx.arc(
-            x,
-            y,
-            4,
-            0,
-            Math.PI * 2
+        window.addEventListener(
+            'resize',
+            ()=>{
+                this.resizeCanvas();
+            }
         );
 
-        ctx.fill();
+
+        this.mapManager.init();
 
 
-        /*
-           Soldat
-        */
+        this.canvas.addEventListener(
+            'click',
+            e=>{
 
-        ctx.fillStyle =
-            `rgb(
-                ${color[0]},
-                ${color[1]},
-                ${color[2]}
-            )`;
+                this.handlePlayerClick(
+                    e.clientX,
+                    e.clientY
+                );
 
-        ctx.beginPath();
-
-        ctx.arc(
-            x,
-            y,
-            2,
-            0,
-            Math.PI * 2
+            }
         );
 
-        ctx.fill();
 
-    });
+        this.startLoops();
+
+    }
 
 
-    requestAnimationFrame(draw);
+    resizeCanvas(){
+
+        this.canvas.width=
+            window.innerWidth;
+
+        this.canvas.height=
+            window.innerHeight;
+
+
+        this.mapManager.cols=
+            Math.max(
+                1,
+                Math.floor(
+                    this.canvas.width/
+                    CONFIG.GRID_SIZE
+                )
+            );
+
+
+        this.mapManager.rows=
+            Math.max(
+                1,
+                Math.floor(
+                    this.canvas.height/
+                    CONFIG.GRID_SIZE
+                )
+            );
+
+    }
+
+
+    handlePlayerClick(
+        clientX,
+        clientY
+    ){
+
+        const x=
+            Math.floor(
+                clientX/
+                CONFIG.GRID_SIZE
+            );
+
+
+        const y=
+            Math.floor(
+                clientY/
+                CONFIG.GRID_SIZE
+            );
+
+
+        if(
+            x<0 ||
+            x>=this.mapManager.cols ||
+            y<0 ||
+            y>=this.mapManager.rows
+        ){
+
+            return;
+
+        }
+
+
+        const targetCell=
+            this.mapManager
+            .grid[x][y];
+
+
+        if(
+            targetCell.owner===
+            CONFIG.FACTIONS.PLAYER
+        ){
+
+            return;
+
+        }
+
+
+        const neighbors=
+            this.mapManager
+            .getNeighbors(x,y);
+
+
+        const playerNeighbors=
+            neighbors.filter(
+                c=>
+                    c.owner===
+                    CONFIG.FACTIONS.PLAYER &&
+                    c.troops>1
+            );
+
+
+        if(
+            playerNeighbors.length>0
+        ){
+
+            playerNeighbors.sort(
+                (a,b)=>
+                    b.troops-a.troops
+            );
+
+
+            const sourceCell=
+                playerNeighbors[0];
+
+
+            this.unitManager.attack(
+                sourceCell,
+                targetCell
+            );
+
+        }
+
+    }
+
+
+    startLoops(){
+
+        setInterval(
+            ()=>{
+
+                let playerCount=0;
+
+                let aiCount=0;
+
+
+                for(
+                    let x=0;
+                    x<this.mapManager.cols;
+                    x++
+                ){
+
+                    for(
+                        let y=0;
+                        y<this.mapManager.rows;
+                        y++
+                    ){
+
+                        const cell=
+                            this.mapManager
+                            .grid[x][y];
+
+
+                        this.unitManager
+                            .regenerateTroops(
+                                cell
+                            );
+
+
+                        if(
+                            cell.owner===
+                            CONFIG.FACTIONS.PLAYER
+                        ){
+
+                            playerCount++;
+
+                        }
+
+
+                        if(
+                            cell.owner===
+                            CONFIG.FACTIONS.AI_EASY
+                        ){
+
+                            aiCount++;
+
+                        }
+
+                    }
+
+                }
+
+
+                const playerElement=
+                    document.getElementById(
+                        'player-count'
+                    );
+
+
+                const aiElement=document.getElementById('ai-count');
+
+
+                if(playerElement){
+
+                    playerElement.textContent=
+                        playerCount;
+
+                }
+
+
+                if(aiElement){
+
+                    aiElement.textContent=
+                        aiCount;
+
+                }
+
+
+            },
+
+            CONFIG.TICK_RATE_ECONOMY
+        );
+
+
+        setInterval(
+            ()=>{
+
+                this.aiController
+                    .makeDecision();
+
+            },
+
+            CONFIG.TICK_RATE_AI
+        );
+
+
+        const renderLoop=()=>{
+
+            this.ctx.clearRect(
+                0,
+                0,
+                this.canvas.width,
+                this.canvas.height
+            );
+
+
+            for(
+                let x=0;
+                x<this.mapManager.cols;
+                x++
+            ){
+
+                for(
+                    let y=0;
+                    y<this.mapManager.rows;
+                    y++
+                ){
+
+                    this.mapManager
+                        .grid[x][y]
+                        .draw(this.ctx);
+
+                }
+
+            }
+
+
+            requestAnimationFrame(
+                renderLoop
+            );
+
+        };
+
+
+        renderLoop();
+
+    }
 
 }
 
 
 /* =========================================================
    DÉMARRAGE
-========================================================= */
+   ========================================================= */
 
-async function startGame() {
+window.addEventListener(
+    'load',
+    ()=>{
 
-    try {
-
-        await buildWorld();
-
-        document
-        .getElementById("loading")
-        .classList.add("hidden");
-
-        updateHUD();
-
-        draw();
+        window.game=
+            new GameEngine();
 
         console.log(
-            "🌍 STRATOVEX prêt !"
+            "STRATOVEX chargé !"
         );
 
     }
-    catch (error) {
-
-        console.error(
-            "Erreur critique :",
-            error
-        );
-
-        document
-        .getElementById("loading")
-        .innerText =
-            "❌ Impossible de charger la carte.";
-
-    }
-
-}
-
-
-startGame();
+);
 
 </script>
 

@@ -1,524 +1,1248 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>OpenFront - Couleurs Aléatoires & Placement Libre</title>
-    <style>
-        body {
-            background-color: #060a12;
-            color: #ffffff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            user-select: none;
-        }
-        #hud {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            width: 1000px;
-            margin-bottom: 8px;
-            background: #0f1724;
-            padding: 10px 18px;
-            border-radius: 6px;
-            border: 1px solid #1e2c40;
-        }
-        .hud-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .stat-group {
-            display: flex;
-            gap: 15px;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .legend-group {
-            display: flex;
-            gap: 15px;
-            font-size: 12px;
-            background: #111d2d;
-            padding: 4px 10px;
-            border-radius: 4px;
-            border: 1px solid #1e2c40;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        .controls-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #182538;
-            padding: 4px 10px;
-            border-radius: 4px;
-        }
-        .btn {
-            background: #2a3d58;
-            color: #fff;
-            border: 1px solid #3d5475;
-            padding: 5px 10px;
-            font-weight: bold;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 3px;
-            transition: 0.15s;
-        }
-        .btn:hover, .btn.active {
-            background: #2288ff;
-            border-color: #55a3ff;
-        }
-        /* Make canvas visually larger (pixelated look) but keep logical resolution for world */
-        canvas {
-            border: 2px solid #1e2c40;
-            border-radius: 4px;
-            background-color: #0d1117;
-            cursor: crosshair;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
-            /* visual size will be set by JS to keep it consistent with cols/rows*displayScale */
-            image-rendering: pixelated;
-        }
-        #spawnNotice {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(22, 101, 216, 0.95);
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 14px;
-            pointer-events: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 1px solid #55a3ff;
-            animation: pulse 1.5s infinite alternate;
-            z-index: 1000;
-        }
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            100% { transform: translateX(-50%) scale(1.05); }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>STRATOVEX</title>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#060a12;
+    font-family:Arial,sans-serif;
+}
+
+#gameCanvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+#ui-bar{
+    position:fixed;
+    top:12px;
+    left:12px;
+    z-index:20;
+    display:flex;
+    gap:10px;
+}
+
+.stat-box{
+    background:rgba(15,23,42,.92);
+    color:white;
+    padding:9px 13px;
+    border:1px solid #334155;
+    border-radius:8px;
+    font-size:14px;
+    box-shadow:0 4px 15px rgba(0,0,0,.35);
+}
+
+.dot{
+    display:inline-block;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    margin-right:6px;
+}
+
+#help{
+    position:fixed;
+    right:12px;
+    bottom:12px;
+    z-index:20;
+    background:rgba(15,23,42,.9);
+    color:#cbd5e1;
+    padding:9px 12px;
+    border-radius:8px;
+    font-size:12px;
+}
+</style>
 </head>
+
 <body>
 
-    <div id="spawnNotice">📍 CLIQUE SUR LA CARTE POUR CHOISIR TA POSITION DE DÉPART !</div>
+<div id="ui-bar">
 
-    <div id="hud">
-        <div class="hud-row">
-            <div class="stat-group">
-                <div>💰 Or: <span id="goldVal" style="color: #ffd700;">200</span></div>
-                <div>⚔️ Armées: <span id="reserveVal" style="color: #55ff55;">300</span></div>
-                <div>🎨 Ta couleur: <span id="myColorDot" style="display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:middle;"></span></div>
-            </div>
-
-            <div class="legend-group">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #5b8c31;"></div>
-                    <span>Plaine (1.0x)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9e854d;"></div>
-                    <span>Désert (1.5x)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #e8ecef;"></div>
-                    <span>Montagne (3.0x)</span>
-                </div>
-            </div>
-
-            <div id="actionMsg" style="color: #ffcc00; font-weight: bold; font-size: 13px;">Choisis ton emplacement de départ !</div>
-        </div>
-
-        <div class="hud-row">
-            <div class="controls-group">
-                <span style="font-size: 11px; font-weight: bold; color: #aaa;">POURCENTAGE D'ENVOI :</span>
-                <button class="btn send-btn" data-pct="10">10%</button>
-                <button class="btn send-btn" data-pct="25">25%</button>
-                <button class="btn send-btn active" id="btn50" data-pct="50">50%</button>
-                <button class="btn send-btn" data-pct="100">100%</button>
-            </div>
-            <div style="font-size: 12px; font-weight: bold; color: #ffd700;">
-                Troupes sélectionnées : <span id="sendVal" style="color: #fff;">150</span>
-            </div>
-        </div>
+    <div class="stat-box">
+        <span class="dot" style="background:#38bdf8;"></span>
+        Joueur :
+        <span id="player-count">1</span>
+        cases
     </div>
 
-    <!-- Keep logical resolution cols x rows -->
-    <canvas id="gameCanvas" width="500" height="300" aria-label="Carte du jeu"></canvas>
+    <div class="stat-box">
+        <span class="dot" style="background:#f43f5e;"></span>
+        IA :
+        <span id="ai-count">1</span>
+        cases
+    </div>
 
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d", { alpha: false });
+</div>
 
-        // logical world resolution
-        const cols = 500;
-        const rows = 300;
+<div id="help">
+    Clique sur une case ennemie voisine pour attaquer
+</div>
 
-        // visual upscaling factor (how large we want the canvas to look visually relative to logical pixels)
-        const displayScale = 2; // original CSS wanted 1000x600 -> 2x
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
+<canvas id="gameCanvas"></canvas>
 
-        // Properly size the canvas buffer for HiDPI and desired display scale
-        canvas.width = cols * displayScale * dpr;
-        canvas.height = rows * displayScale * dpr;
-        canvas.style.width = (cols * displayScale) + "px";
-        canvas.style.height = (rows * displayScale) + "px";
-        // transform so that drawing coordinates are in logical pixels (cols x rows)
-        ctx.setTransform(dpr * displayScale, 0, 0, dpr * displayScale, 0, 0);
-        ctx.imageSmoothingEnabled = false;
+<script>
 
-        let gameStarted = false;
-        let gold = 200;
-        let reserveTroops = 300;
-        let sendPercentage = 50;
+/* =========================================================
+   CONFIGURATION
+   ========================================================= */
 
-        // Grilles
-        let world = new Uint8Array(cols * rows);    // 0: Eau, 1: Terre
-        let terrain = new Uint8Array(cols * rows);  // 1: Plaine, 2: Désert, 3: Montagne
-        let owners = new Uint8Array(cols * rows);   // 0: Neutre, 1: Joueur, 2,3: Bots
+const CONFIG = {
 
-        let activeArmies = [];
+    GRID_SIZE:30,
 
-        // Couleurs de terrains
-        const terrainColors = {
-            1: [91, 140, 49],   // Plaine (Vert)
-            2: [158, 133, 77],  // Désert (Brun)
-            3: [232, 236, 239]  // Montagne (Blanc)
+    TICK_RATE_ECONOMY:500,
+
+    TICK_RATE_AI:800,
+
+    STARTING_TROOPS:20,
+
+    MAX_TROOPS_DEFAULT:100,
+
+    TROOP_REGEN_RATE:0.5,
+
+    FACTIONS:{
+        NEUTRAL:0,
+        PLAYER:1,
+        AI_EASY:2,
+        AI_HARD:3
+    },
+
+    COLORS:{
+
+        0:{
+            bg:'#1e293b',
+            border:'#334155',
+            text:'#64748b'
+        },
+
+        1:{
+            bg:'#0284c7',
+            border:'#38bdf8',
+            text:'#ffffff'
+        },
+
+        2:{
+            bg:'#be123c',
+            border:'#f43f5e',
+            text:'#ffffff'
+        },
+
+        3:{
+            bg:'#7c3aed',
+            border:'#a78bfa',
+            text:'#ffffff'
+        }
+
+    },
+
+    TERRAINS:{
+
+        PLAIN:{
+            cost:1,
+            defense:1.0,
+            maxTroopsMod:1.0
+        },
+
+        FOREST:{
+            cost:2,
+            defense:1.5,
+            maxTroopsMod:1.2
+        },
+
+        MOUNTAIN:{
+            cost:3,
+            defense:2.0,
+            maxTroopsMod:1.5
+        }
+
+    }
+
+};
+
+
+/* =========================================================
+   CARTE / CELLULE
+   ========================================================= */
+
+class Cell{
+
+    constructor(x,y){
+
+        this.x=x;
+
+        this.y=y;
+
+        this.owner=
+            CONFIG.FACTIONS.NEUTRAL;
+
+        this.troops=5;
+
+        this.maxTroops=
+            CONFIG.MAX_TROOPS_DEFAULT;
+
+        this.terrain='PLAIN';
+
+        this.building='NONE';
+
+    }
+
+
+    draw(ctx){
+
+        const px=
+            this.x*CONFIG.GRID_SIZE;
+
+        const py=
+            this.y*CONFIG.GRID_SIZE;
+
+        const color=
+            CONFIG.COLORS[this.owner];
+
+        let fillBg=color.bg;
+
+
+        if(
+            this.terrain==='FOREST' &&
+            this.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
+
+            fillBg='#14532d';
+
+        }
+
+        else if(
+            this.terrain==='MOUNTAIN' &&
+            this.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
+
+            fillBg='#334155';
+
+        }
+
+
+        ctx.fillStyle=fillBg;
+
+        ctx.fillRect(
+            px+1,
+            py+1,
+            CONFIG.GRID_SIZE-2,
+            CONFIG.GRID_SIZE-2
+        );
+
+
+        ctx.strokeStyle=color.border;
+
+        ctx.lineWidth=1;
+
+        ctx.strokeRect(
+            px+1,
+            py+1,
+            CONFIG.GRID_SIZE-2,
+            CONFIG.GRID_SIZE-2
+        );
+
+
+        if(this.troops>0){
+
+            ctx.fillStyle=color.text;
+
+            ctx.font='10px Arial';
+
+            ctx.textAlign='center';
+
+            ctx.textBaseline='middle';
+
+            ctx.fillText(
+                Math.floor(this.troops),
+                px+CONFIG.GRID_SIZE/2,
+                py+CONFIG.GRID_SIZE/2
+            );
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   GESTIONNAIRE DE CARTE
+   ========================================================= */
+
+class MapManager{
+
+    constructor(width,height){
+
+        this.cols=
+            Math.floor(
+                width/CONFIG.GRID_SIZE
+            );
+
+        this.rows=
+            Math.floor(
+                height/CONFIG.GRID_SIZE
+            );
+
+        this.grid=[];
+
+    }
+
+
+    init(){
+
+        this.grid=[];
+
+
+        for(
+            let x=0;
+            x<this.cols;
+            x++
+        ){
+
+            this.grid[x]=[];
+
+
+            for(
+                let y=0;
+                y<this.rows;
+                y++
+            ){
+
+                const cell=
+                    new Cell(x,y);
+
+                const rand=
+                    Math.random();
+
+
+                if(rand<0.08){
+
+                    cell.terrain=
+                        'MOUNTAIN';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT *
+                        CONFIG.TERRAINS.MOUNTAIN.maxTroopsMod;
+
+                }
+
+                else if(rand<0.20){
+
+                    cell.terrain=
+                        'FOREST';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT *
+                        CONFIG.TERRAINS.FOREST.maxTroopsMod;
+
+                }
+
+                else{
+
+                    cell.terrain=
+                        'PLAIN';
+
+                    cell.maxTroops=
+                        CONFIG.MAX_TROOPS_DEFAULT;
+
+                }
+
+
+                this.grid[x][y]=cell;
+
+            }
+
+        }
+
+
+        if(
+            this.cols>=5 &&
+            this.rows>=5
+        ){
+
+            const playerCell=
+                this.grid[2][2];
+
+            playerCell.owner=
+                CONFIG.FACTIONS.PLAYER;
+
+            playerCell.troops=
+                CONFIG.STARTING_TROOPS;
+
+
+            const aiCell=
+                this.grid[
+                    this.cols-3
+                ][
+                    this.rows-3
+                ];
+
+            aiCell.owner=
+                CONFIG.FACTIONS.AI_EASY;
+
+            aiCell.troops=
+                CONFIG.STARTING_TROOPS;
+
+        }
+
+    }
+
+
+    getNeighbors(x,y){
+
+        const neighbors=[];
+
+        const dirs=[
+
+            [0,-1],
+
+            [0,1],
+
+            [-1,0],
+
+            [1,0]
+
+        ];
+
+
+        for(
+            const [dx,dy] of dirs
+        ){
+
+            const nx=x+dx;
+
+            const ny=y+dy;
+
+
+            if(
+                nx>=0 &&
+                nx<this.cols &&
+                ny>=0 &&
+                ny<this.rows
+            ){
+
+                neighbors.push(
+                    this.grid[nx][ny]
+                );
+
+            }
+
+        }
+
+
+        return neighbors;
+
+    }
+
+}
+
+
+/* =========================================================
+   BÂTIMENTS
+   ========================================================= */
+
+class BuildingManager{
+
+    constructor(){
+
+        this.TYPES={
+
+            NONE:{
+                name:'Aucun',
+                cost:0,
+                productionBonus:1.0,
+                defenseBonus:1.0
+            },
+
+            FACTORY:{
+                name:'Usine',
+                cost:50,
+                productionBonus:2.0,
+                defenseBonus:1.2
+            },
+
+            TOWER:{
+                name:'Tour de Défense',
+                cost:40,
+                productionBonus:0.5,
+                defenseBonus:2.5
+            },
+
+            MINE:{
+                name:'Mine',
+                cost:60,
+                productionBonus:1.0,
+                defenseBonus:1.0
+            }
+
         };
 
-        const terrainSpeedModifiers = {
-            1: 1.0,          // Normal
-            2: 1.0 / 1.5,    // 1.5x plus lent
-            3: 1.0 / 3.0     // 3x plus lent
+    }
+
+
+    build(
+        cell,
+        buildingKey,
+        playerGold
+    ){
+
+        const buildingData=
+            this.TYPES[buildingKey];
+
+
+        if(!buildingData){
+
+            return{
+                success:false,
+                cost:0
+            };
+
+        }
+
+
+        if(
+            playerGold>=
+            buildingData.cost
+        ){
+
+            cell.building=
+                buildingKey;
+
+
+            cell.maxTroops=
+                Math.floor(
+
+                    CONFIG.MAX_TROOPS_DEFAULT *
+
+                    CONFIG.TERRAINS[
+                        cell.terrain
+                    ].maxTroopsMod *
+
+                    buildingData.defenseBonus
+
+                );
+
+
+            return{
+                success:true,
+                cost:buildingData.cost
+            };
+
+        }
+
+
+        return{
+            success:false,
+            cost:0
         };
 
-        let playerColors = {};
+    }
 
-        function generateRandomColor() {
-            let h = Math.floor(Math.random() * 360);
-            let s = 70 + Math.floor(Math.random() * 30);
-            let l = 45 + Math.floor(Math.random() * 15);
 
-            let c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
-            let x = c * (1 - Math.abs((h / 60) % 2 - 1));
-            let m = l / 100 - c / 2;
-            let r = 0, g = 0, b = 0;
+    getProductionMultiplier(cell){
 
-            if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-            else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-            else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-            else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-            else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-            else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+        if(
+            !cell.building ||
+            cell.building==='NONE'
+        ){
 
-            return [
-                Math.round((r + m) * 255),
-                Math.round((g + m) * 255),
-                Math.round((b + m) * 255)
-            ];
+            return 1.0;
+
         }
 
-        function assignRandomColors() {
-            playerColors[1] = generateRandomColor(); // Joueur
-            playerColors[2] = generateRandomColor(); // Bot 1
-            playerColors[3] = generateRandomColor(); // Bot 2
 
-            let c = playerColors[1];
-            document.getElementById("myColorDot").style.background = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+        return this.TYPES[
+            cell.building
+        ].productionBonus;
+
+    }
+
+}
+
+
+/* =========================================================
+   UNITÉS / COMBAT
+   ========================================================= */
+
+class UnitManager{
+
+    constructor(buildingManager){
+
+        this.buildingManager=
+            buildingManager;
+
+    }
+
+
+    attack(
+        sourceCell,
+        targetCell
+    ){
+
+        if(
+            sourceCell.troops<=1
+        ){
+
+            return false;
+
         }
 
-        function pseudoNoise(x, y, scale) {
-            return (Math.sin(x * scale) + Math.cos(y * scale) + Math.sin((x + y) * scale * 0.5)) / 3;
+
+        if(
+            sourceCell.owner===
+            targetCell.owner
+        ){
+
+            return false;
+
         }
 
-        function generateWorld() {
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    let idx = r * cols + c;
-                    let continent = pseudoNoise(c, r, 0.015) + pseudoNoise(c, r, 0.03) * 0.5;
 
-                    if (continent > -0.15) {
-                        world[idx] = 1;
+        const terrainDef=
+            CONFIG.TERRAINS[
+                targetCell.terrain
+            ]
+            ?
+            CONFIG.TERRAINS[
+                targetCell.terrain
+            ].defense
+            :
+            1.0;
 
-                        let elevation = pseudoNoise(c, r, 0.04) + pseudoNoise(c * 2, r * 2, 0.08) * 0.3;
 
-                        if (elevation > 0.35) {
-                            terrain[idx] = 3;
-                        } else if (elevation > 0.05) {
-                            terrain[idx] = 2;
-                        } else {
-                            terrain[idx] = 1;
+        let buildingDef=1.0;
+
+
+        if(
+            targetCell.building &&
+            this.buildingManager.TYPES[
+                targetCell.building
+            ]
+        ){
+
+            buildingDef=
+                this.buildingManager
+                .TYPES[
+                    targetCell.building
+                ]
+                .defenseBonus;
+
+        }
+
+
+        const totalDefenseMultiplier=
+            terrainDef*buildingDef;
+
+
+        const attackPower=
+            Math.floor(
+                sourceCell.troops-1
+            );
+
+
+        sourceCell.troops=1;
+
+
+        const effectiveDefense=
+            targetCell.troops*
+            totalDefenseMultiplier;
+
+
+        if(
+            attackPower>
+            effectiveDefense
+        ){
+
+            targetCell.troops=
+                Math.floor(
+                    attackPower-
+                    effectiveDefense
+                );
+
+
+            targetCell.owner=
+                sourceCell.owner;
+
+
+            return true;
+
+        }
+
+
+        targetCell.troops=
+            Math.max(
+                0,
+                Math.floor(
+                    effectiveDefense-
+                    attackPower
+                )
+            );
+
+
+        return false;
+
+    }
+
+
+    regenerateTroops(cell){
+
+        if(
+            cell.owner===
+            CONFIG.FACTIONS.NEUTRAL
+        ){
+
+            return;
+
+        }
+
+
+        let prodBonus=1.0;
+
+
+        if(
+            this.buildingManager &&
+            cell.building
+        ){
+
+            prodBonus=
+                this.buildingManager
+                .getProductionMultiplier(
+                    cell
+                );
+
+        }
+
+
+        if(
+            cell.troops<
+            cell.maxTroops
+        ){
+
+            cell.troops+=
+                CONFIG.TROOP_REGEN_RATE*
+                prodBonus;
+
+
+            if(
+                cell.troops>
+                cell.maxTroops
+            ){
+
+                cell.troops=
+                    cell.maxTroops;
+
+            }
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   IA
+   ========================================================= */
+
+class AIController{
+
+    constructor(
+        factionId,
+        mapManager,
+        unitManager
+    ){
+
+        this.factionId=
+            factionId;
+
+        this.mapManager=
+            mapManager;
+
+        this.unitManager=
+            unitManager;
+
+    }
+
+
+    makeDecision(){
+
+        const aiCells=[];
+
+
+        for(
+            let x=0;
+            x<this.mapManager.cols;
+            x++
+        ){
+
+            for(
+                let y=0;
+                y<this.mapManager.rows;
+                y++
+            ){
+
+                const cell=
+                    this.mapManager
+                    .grid[x][y];
+
+
+                if(
+                    cell.owner===
+                    this.factionId &&
+                    cell.troops>15
+                ){
+
+                    aiCells.push(cell);
+
+                }
+
+            }
+
+        }
+
+
+        if(
+            aiCells.length===0
+        ){
+
+            return;
+
+        }
+
+
+        aiCells.sort(
+            (a,b)=>
+                b.troops-a.troops
+        );
+
+
+        const sourceCell=
+            aiCells[0];
+
+
+        const neighbors=
+            this.mapManager
+            .getNeighbors(
+                sourceCell.x,
+                sourceCell.y
+            );
+
+
+        const targetable=
+            neighbors.filter(
+                c=>
+                    c.owner!==
+                    this.factionId
+            );
+
+
+        if(
+            targetable.length===0
+        ){
+
+            return;
+
+        }
+
+
+        targetable.sort(
+            (a,b)=>
+                a.troops-b.troops
+        );
+
+
+        const targetCell=
+            targetable[0];
+
+
+        this.unitManager.attack(
+            sourceCell,
+            targetCell
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   MOTEUR DU JEU
+   ========================================================= */
+
+class GameEngine{
+
+    constructor(){
+
+        this.canvas=
+            document.getElementById(
+                'gameCanvas'
+            );
+
+
+        this.ctx=
+            this.canvas.getContext(
+                '2d'
+            );
+
+
+        this.buildingManager=
+            new BuildingManager();
+
+
+        this.unitManager=
+            new UnitManager(
+                this.buildingManager
+            );
+
+
+        this.mapManager=
+            new MapManager(
+                window.innerWidth,
+                window.innerHeight
+            );
+
+
+        this.aiController=
+            new AIController(
+                CONFIG.FACTIONS.AI_EASY,
+                this.mapManager,
+                this.unitManager
+            );
+
+
+        this.init();
+
+    }
+
+
+    init(){
+
+        this.resizeCanvas();
+
+
+        window.addEventListener(
+            'resize',
+            ()=>{
+                this.resizeCanvas();
+            }
+        );
+
+
+        this.mapManager.init();
+
+
+        this.canvas.addEventListener(
+            'click',
+            e=>{
+
+                this.handlePlayerClick(
+                    e.clientX,
+                    e.clientY
+                );
+
+            }
+        );
+
+
+        this.startLoops();
+
+    }
+
+
+    resizeCanvas(){
+
+        this.canvas.width=
+            window.innerWidth;
+
+        this.canvas.height=
+            window.innerHeight;
+
+
+        this.mapManager.cols=
+            Math.max(
+                1,
+                Math.floor(
+                    this.canvas.width/
+                    CONFIG.GRID_SIZE
+                )
+            );
+
+
+        this.mapManager.rows=
+            Math.max(
+                1,
+                Math.floor(
+                    this.canvas.height/
+                    CONFIG.GRID_SIZE
+                )
+            );
+
+    }
+
+
+    handlePlayerClick(
+        clientX,
+        clientY
+    ){
+
+        const x=
+            Math.floor(
+                clientX/
+                CONFIG.GRID_SIZE
+            );
+
+
+        const y=
+            Math.floor(
+                clientY/
+                CONFIG.GRID_SIZE
+            );
+
+
+        if(
+            x<0 ||
+            x>=this.mapManager.cols ||
+            y<0 ||
+            y>=this.mapManager.rows
+        ){
+
+            return;
+
+        }
+
+
+        const targetCell=
+            this.mapManager
+            .grid[x][y];
+
+
+        if(
+            targetCell.owner===
+            CONFIG.FACTIONS.PLAYER
+        ){
+
+            return;
+
+        }
+
+
+        const neighbors=
+            this.mapManager
+            .getNeighbors(x,y);
+
+
+        const playerNeighbors=
+            neighbors.filter(
+                c=>
+                    c.owner===
+                    CONFIG.FACTIONS.PLAYER &&
+                    c.troops>1
+            );
+
+
+        if(
+            playerNeighbors.length>0
+        ){
+
+            playerNeighbors.sort(
+                (a,b)=>
+                    b.troops-a.troops
+            );
+
+
+            const sourceCell=
+                playerNeighbors[0];
+
+
+            this.unitManager.attack(
+                sourceCell,
+                targetCell
+            );
+
+        }
+
+    }
+
+
+    startLoops(){
+
+        setInterval(
+            ()=>{
+
+                let playerCount=0;
+
+                let aiCount=0;
+
+
+                for(
+                    let x=0;
+                    x<this.mapManager.cols;
+                    x++
+                ){
+
+                    for(
+                        let y=0;
+                        y<this.mapManager.rows;
+                        y++
+                    ){
+
+                        const cell=
+                            this.mapManager
+                            .grid[x][y];
+
+
+                        this.unitManager
+                            .regenerateTroops(
+                                cell
+                            );
+
+
+                        if(
+                            cell.owner===
+                            CONFIG.FACTIONS.PLAYER
+                        ){
+
+                            playerCount++;
+
                         }
-                    } else {
-                        world[idx] = 0;
-                        terrain[idx] = 0;
-                    }
-                }
-            }
-        }
 
-        function setSpawnArea(r, c, ownerId, radius = 5) {
-            let changed = false;
-            for (let dr = -radius; dr <= radius; dr++) {
-                for (let dc = -radius; dc <= radius; dc++) {
-                    let nr = r + dr, nc = c + dc;
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                        let idx = nr * cols + nc;
-                        if (world[idx] === 1 && owners[idx] !== ownerId) {
-                            owners[idx] = ownerId;
-                            changed = true;
+
+                        if(
+                            cell.owner===
+                            CONFIG.FACTIONS.AI_EASY
+                        ){
+
+                            aiCount++;
+
                         }
+
                     }
-                }
-            }
-            if (changed) ownersChanged = true;
-        }
 
-        function spawnOtherBots(playerR, playerC) {
-            let spawnedEnemies = 0;
-            let attempts = 0;
-
-            while (spawnedEnemies < 2 && attempts < 2000) {
-                attempts++;
-                let randR = Math.floor(Math.random() * (rows - 40)) + 20;
-                let randC = Math.floor(Math.random() * (cols - 40)) + 20;
-                let idx = randR * cols + randC;
-
-                let distToPlayer = Math.hypot(randC - playerC, randR - playerR);
-
-                if (world[idx] === 1 && owners[idx] === 0 && distToPlayer > 80) {
-                    let botOwner = (spawnedEnemies === 0) ? 2 : 3;
-                    setSpawnArea(randR, randC, botOwner, 5);
-                    spawnedEnemies++;
-                }
-            }
-        }
-
-        generateWorld();
-        assignRandomColors();
-
-        // --- Button handlers: use delegation/listeners, avoid inline onclick and global event ---
-        document.querySelectorAll(".send-btn").forEach(btn => {
-            btn.addEventListener("click", (ev) => {
-                const pct = Number(btn.getAttribute("data-pct")) || 50;
-                setPercentage(pct, btn);
-            });
-        });
-
-        function setPercentage(pct, btnElement = null) {
-            sendPercentage = pct;
-            document.querySelectorAll(".controls-group .btn").forEach(b => b.classList.remove("active"));
-            if (btnElement) btnElement.classList.add("active");
-            updateHUD();
-        }
-
-        // click -> translate coordinates (accounting for visual scaling)
-        canvas.addEventListener("click", (e) => {
-            // compute logical coords (0..cols-1, 0..rows-1)
-            const rect = canvas.getBoundingClientRect();
-            // visual width/height in CSS pixels
-            const cssWidth = rect.width;
-            const cssHeight = rect.height;
-            const scaleX = cols / cssWidth;
-            const scaleY = rows / cssHeight;
-
-            const tx = Math.floor((e.clientX - rect.left) * scaleX);
-            const ty = Math.floor((e.clientY - rect.top) * scaleY);
-
-            if (tx < 0 || tx >= cols || ty < 0 || ty >= rows) return;
-
-            if (!gameStarted) {
-                let targetIdx = ty * cols + tx;
-                if (world[targetIdx] === 1) {
-                    setSpawnArea(ty, tx, 1, 6);
-                    spawnOtherBots(ty, tx);
-                    gameStarted = true;
-                    document.getElementById("spawnNotice").style.display = "none";
-                    document.getElementById("actionMsg").innerText = "🎮 Partie lancée ! Attaque pour agrandir ton territoire !";
-                    document.getElementById("actionMsg").style.color = "#88a0bc";
-                    updateHUD();
-                } else {
-                    document.getElementById("actionMsg").innerText = "⚠️ Tu dois choisir un emplacement sur la TERRE !";
-                    document.getElementById("actionMsg").style.color = "#ff4444";
-                }
-                return;
-            }
-
-            let targetIdx = ty * cols + tx;
-            if (world[targetIdx] === 1 && owners[targetIdx] !== 1) {
-                let startPoint = findClosestTerritoryPoint(tx, ty, 1);
-                if (startPoint) {
-                    let amount = Math.floor(reserveTroops * (sendPercentage / 100));
-                    amount = Math.max(1, amount); // send at least 1
-                    if (amount >= 1) {
-                        reserveTroops -= amount;
-                        activeArmies.push({
-                            x: startPoint.x + 0.5,
-                            y: startPoint.y + 0.5,
-                            targetX: tx + 0.5,
-                            targetY: ty + 0.5,
-                            count: amount,
-                            owner: 1
-                        });
-                        document.getElementById("actionMsg").innerText = `⚔️ ${amount} troupes en marche vers la cible !`;
-                        ownersChanged = true; // we'll update visuals as owners are conquered
-                        updateHUD();
-                    }
-                }
-            }
-        });
-
-        function findClosestTerritoryPoint(tx, ty, ownerId) {
-            let closest = null, minDist = Infinity;
-            // we iterate all cells; step 1 for better precision (was 2)
-            for (let r = 0; r < rows; r += 2) {
-                for (let c = 0; c < cols; c += 2) {
-                    let idx = r * cols + c;
-                    if (owners[idx] === ownerId) {
-                        let d = Math.hypot(c - tx, r - ty);
-                        if (d < minDist) { minDist = d; closest = { x: c, y: r }; }
-                    }
-                }
-            }
-            return closest;
-        }
-
-        function updateArmies() {
-            for (let i = activeArmies.length - 1; i >= 0; i--) {
-                let army = activeArmies[i];
-
-                let cx = Math.floor(army.x);
-                let cy = Math.floor(army.y);
-                if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) { activeArmies.splice(i, 1); continue; }
-                let currentIdx = cy * cols + cx;
-
-                let terrainType = terrain[currentIdx] || 1;
-                let speedModifier = terrainSpeedModifiers[terrainType] || 1.0;
-                let baseSpeed = 0.8;
-
-                let dx = army.targetX - army.x;
-                let dy = army.targetY - army.y;
-                let dist = Math.hypot(dx, dy);
-
-                if (dist > 0.5 && army.count > 0) {
-                    army.x += (dx / dist) * baseSpeed * speedModifier;
-                    army.y += (dy / dist) * baseSpeed * speedModifier;
-
-                    let newIdx = Math.floor(army.y) * cols + Math.floor(army.x);
-
-                    if (world[newIdx] === 1 && owners[newIdx] !== army.owner) {
-                        // capture tile: remove 1 troop per capture (integer model)
-                        owners[newIdx] = army.owner;
-                        army.count = Math.max(0, army.count - 1);
-                        ownersChanged = true;
-                    }
-                } else {
-                    activeArmies.splice(i, 1);
                 }
 
-                if (army.count <= 0) {
-                    // if no troops left, remove
-                    if (activeArmies[i]) activeArmies.splice(i, 1);
+
+                const playerElement=
+                    document.getElementById(
+                        'player-count'
+                    );
+
+
+                const aiElement=document.getElementById('ai-count');
+
+
+                if(playerElement){
+
+                    playerElement.textContent=
+                        playerCount;
+
                 }
-            }
-        }
 
-        // Auto-income timer
-        setInterval(() => {
-            if (!gameStarted) return;
-            let territory = countTerritory(1);
-            reserveTroops += Math.max(3, Math.floor(territory * 0.05));
-            gold += Math.max(1, Math.floor(territory * 0.02));
-            updateHUD();
-        }, 1000);
 
-        function countTerritory(ownerId) {
-            let c = 0;
-            for (let i = 0; i < cols * rows; i++) {
-                if (owners[i] === ownerId) c++;
-            }
-            return c;
-        }
+                if(aiElement){
 
-        function updateHUD() {
-            document.getElementById("goldVal").innerText = Math.floor(gold);
-            document.getElementById("reserveVal").innerText = Math.floor(reserveTroops);
-            document.getElementById("sendVal").innerText = Math.floor(reserveTroops * (sendPercentage / 100));
-        }
+                    aiElement.textContent=
+                        aiCount;
 
-        // ImageData buffer for logical resolution (cols x rows)
-        const imgData = ctx.createImageData(cols, rows);
-        const data = imgData.data;
-        let ownersChanged = true; // mark initially true so first draw builds image
-
-        function rebuildImageData() {
-            // Rebuild pixel buffer from world/terrain/owners
-            for (let i = 0; i < cols * rows; i++) {
-                let p = i * 4;
-                if (world[i] === 1) {
-                    let o = owners[i];
-                    if (o > 0 && playerColors[o]) {
-                        let c = playerColors[o];
-                        data[p] = c[0]; data[p+1] = c[1]; data[p+2] = c[2]; data[p+3] = 255;
-                    } else {
-                        let t = terrain[i] || 1;
-                        let c = terrainColors[t] || [91,140,49];
-                        data[p] = c[0]; data[p+1] = c[1]; data[p+2] = c[2]; data[p+3] = 255;
-                    }
-                } else {
-                    data[p] = 18; data[p+1] = 25; data[p+2] = 36; data[p+3] = 255;
                 }
+
+
+            },
+
+            CONFIG.TICK_RATE_ECONOMY
+        );
+
+
+        setInterval(
+            ()=>{
+
+                this.aiController
+                    .makeDecision();
+
+            },
+
+            CONFIG.TICK_RATE_AI
+        );
+
+
+        const renderLoop=()=>{
+
+            this.ctx.clearRect(
+                0,
+                0,
+                this.canvas.width,
+                this.canvas.height
+            );
+
+
+            for(
+                let x=0;
+                x<this.mapManager.cols;
+                x++
+            ){
+
+                for(
+                    let y=0;
+                    y<this.mapManager.rows;
+                    y++
+                ){
+
+                    this.mapManager
+                        .grid[x][y]
+                        .draw(this.ctx);
+
+                }
+
             }
-            ownersChanged = false;
-        }
 
-        function draw() {
-            updateArmies();
 
-            // only rebuild image buffer when owners/terrain changed
-            if (ownersChanged) {
-                rebuildImageData();
-                // putImageData uses the buffer at logical size (cols x rows)
-                // we draw it on a transformed context so it is upscaled visually
-                ctx.putImageData(imgData, 0, 0);
-            } else {
-                // still need to clear and put previous buffer so armies draw on top correctly
-                // to avoid a full rebuild, just draw the existing ImageData (cheap putImageData)
-                ctx.putImageData(imgData, 0, 0);
-            }
+            requestAnimationFrame(
+                renderLoop
+            );
 
-            // Draw moving troops on top
-            activeArmies.forEach(army => {
-                // pick owner's color border or white dot for visibility
-                const ownerColor = playerColors[army.owner] ? `rgb(${playerColors[army.owner].join(',')})` : '#ffffff';
-                ctx.fillStyle = '#ffffff';
-                // Draw small rectangle scaled in logical pixels
-                ctx.fillRect(Math.floor(army.x) - 1, Math.floor(army.y) - 1, 2, 2);
-                // optional: small colored dot with stroke:
-                ctx.fillStyle = ownerColor;
-                // small dot center (1x1)
-                ctx.fillRect(Math.floor(army.x), Math.floor(army.y), 1, 1);
-            });
+        };
 
-            requestAnimationFrame(draw);
-        }
 
-        draw();
-    </script>
+        renderLoop();
+
+    }
+
+}
+
+
+/* =========================================================
+   DÉMARRAGE
+   ========================================================= */
+
+window.addEventListener(
+    'load',
+    ()=>{
+
+        window.game=
+            new GameEngine();
+
+        console.log(
+            "STRATOVEX chargé !"
+        );
+
+    }
+);
+
+</script>
+
 </body>
 </html>

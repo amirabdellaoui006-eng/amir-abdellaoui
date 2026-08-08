@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>OpenFront - Couleurs Aléatoires & Placement Libre</title>
+    <title>STRATOVEX - Carte terrestre réaliste</title>
     <style>
         body {
             background-color: #060a12;
@@ -27,498 +27,204 @@
             border-radius: 6px;
             border: 1px solid #1e2c40;
         }
-        .hud-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .stat-group {
-            display: flex;
-            gap: 15px;
-            font-weight: bold;
-            font-size: 13px;
-        }
-        .legend-group {
-            display: flex;
-            gap: 15px;
-            font-size: 12px;
-            background: #111d2d;
-            padding: 4px 10px;
-            border-radius: 4px;
-            border: 1px solid #1e2c40;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        .controls-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #182538;
-            padding: 4px 10px;
-            border-radius: 4px;
-        }
-        .btn {
-            background: #2a3d58;
-            color: #fff;
-            border: 1px solid #3d5475;
-            padding: 5px 10px;
-            font-weight: bold;
-            font-size: 11px;
-            cursor: pointer;
-            border-radius: 3px;
-            transition: 0.15s;
-        }
-        .btn:hover, .btn.active {
-            background: #2288ff;
-            border-color: #55a3ff;
-        }
-        /* Make canvas visually larger (pixelated look) but keep logical resolution for world */
-        canvas {
-            border: 2px solid #1e2c40;
-            border-radius: 4px;
-            background-color: #0d1117;
-            cursor: crosshair;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.9);
-            /* visual size will be set by JS to keep it consistent with cols/rows*displayScale */
-            image-rendering: pixelated;
-        }
-        #spawnNotice {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(22, 101, 216, 0.95);
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 14px;
-            pointer-events: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 1px solid #55a3ff;
-            animation: pulse 1.5s infinite alternate;
-            z-index: 1000;
-        }
-        @keyframes pulse {
-            0% { transform: translateX(-50%) scale(1); }
-            100% { transform: translateX(-50%) scale(1.05); }
-        }
+        .hud-row { display:flex; justify-content:space-between; align-items:center }
+        .stat-group { display:flex; gap:15px; font-weight:bold; font-size:13px }
+        .controls-group { display:flex; align-items:center; gap:8px; background:#182538; padding:4px 10px; border-radius:4px }
+        .btn { background:#2a3d58; color:#fff; border:1px solid #3d5475; padding:5px 10px; font-weight:bold; font-size:11px; cursor:pointer; border-radius:3px }
+        .btn.active { background:#2288ff; border-color:#55a3ff }
+        canvas { border:2px solid #1e2c40; border-radius:4px; background-color:#0d1117; cursor:crosshair; box-shadow:0 10px 30px rgba(0,0,0,0.9); image-rendering:pixelated }
+        #spawnNotice { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(22,101,216,0.95); color:#fff; padding:10px 20px; border-radius:30px; font-weight:bold; font-size:14px; pointer-events:none; box-shadow:0 4px 15px rgba(0,0,0,0.5); border:1px solid #55a3ff; z-index:1000 }
     </style>
 </head>
 <body>
-
-    <div id="spawnNotice">📍 CLIQUE SUR LA CARTE POUR CHOISIR TA POSITION DE DÉPART !</div>
+    <div id="spawnNotice">📍 Clique sur la carte pour choisir ta position de départ !</div>
 
     <div id="hud">
         <div class="hud-row">
             <div class="stat-group">
-                <div>💰 Or: <span id="goldVal" style="color: #ffd700;">200</span></div>
-                <div>⚔️ Armées: <span id="reserveVal" style="color: #55ff55;">300</span></div>
-                <div>🎨 Ta couleur: <span id="myColorDot" style="display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:middle;"></span></div>
+                <div>💰 Or: <span id="goldVal" style="color:#ffd700">200</span></div>
+                <div>⚔️ Armées: <span id="reserveVal" style="color:#55ff55">300</span></div>
+                <div>🎨 Ta couleur: <span id="myColorDot" style="display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:middle"></span></div>
             </div>
-
-            <div class="legend-group">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #5b8c31;"></div>
-                    <span>Plaine (1.0x)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #9e854d;"></div>
-                    <span>Désert (1.5x)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #e8ecef;"></div>
-                    <span>Montagne (3.0x)</span>
-                </div>
-            </div>
-
-            <div id="actionMsg" style="color: #ffcc00; font-weight: bold; font-size: 13px;">Choisis ton emplacement de départ !</div>
+            <div id="actionMsg" style="color:#ffcc00;font-weight:bold;font-size:13px">Choisis ton emplacement de départ !</div>
         </div>
-
         <div class="hud-row">
             <div class="controls-group">
-                <span style="font-size: 11px; font-weight: bold; color: #aaa;">POURCENTAGE D'ENVOI :</span>
+                <span style="font-size:11px;font-weight:bold;color:#aaa">POURCENTAGE D'ENVOI :</span>
                 <button class="btn send-btn" data-pct="10">10%</button>
                 <button class="btn send-btn" data-pct="25">25%</button>
-                <button class="btn send-btn active" id="btn50" data-pct="50">50%</button>
+                <button class="btn send-btn active" data-pct="50">50%</button>
                 <button class="btn send-btn" data-pct="100">100%</button>
             </div>
-            <div style="font-size: 12px; font-weight: bold; color: #ffd700;">
-                Troupes sélectionnées : <span id="sendVal" style="color: #fff;">150</span>
-            </div>
+            <div style="font-size:12px;font-weight:bold;color:#ffd700">Troupes sélectionnées : <span id="sendVal" style="color:#fff">150</span></div>
         </div>
     </div>
 
-    <!-- Keep logical resolution cols x rows -->
-    <canvas id="gameCanvas" width="500" height="300" aria-label="Carte du jeu"></canvas>
+    <!-- logical resolution kept for gameplay -->
+    <canvas id="gameCanvas" width="1000" height="500" aria-label="Carte du monde"></canvas>
 
     <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d", { alpha: false });
+    // STRATOVEX: replace procedural map by realistic coastlines using public GeoJSON
+    // We rasterize countries GeoJSON into an equirectangular canvas to get precise land/sea.
 
-        // logical world resolution
-        const cols = 500;
-        const rows = 300;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-        // visual upscaling factor (how large we want the canvas to look visually relative to logical pixels)
-        const displayScale = 2; // original CSS wanted 1000x600 -> 2x
-        const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const cols = 1000; // logical resolution matched to canvas for visual fidelity
+    const rows = 500;
 
-        // Properly size the canvas buffer for HiDPI and desired display scale
-        canvas.width = cols * displayScale * dpr;
-        canvas.height = rows * displayScale * dpr;
-        canvas.style.width = (cols * displayScale) + "px";
-        canvas.style.height = (rows * displayScale) + "px";
-        // transform so that drawing coordinates are in logical pixels (cols x rows)
-        ctx.setTransform(dpr * displayScale, 0, 0, dpr * displayScale, 0, 0);
-        ctx.imageSmoothingEnabled = false;
+    // keep display scale 1:1 here (canvas sized to 1000x500)
+    canvas.width = cols;
+    canvas.height = rows;
 
-        let gameStarted = false;
-        let gold = 200;
-        let reserveTroops = 300;
-        let sendPercentage = 50;
+    let gameStarted = false;
+    let gold = 200;
+    let reserveTroops = 300;
+    let sendPercentage = 50;
 
-        // Grilles
-        let world = new Uint8Array(cols * rows);    // 0: Eau, 1: Terre
-        let terrain = new Uint8Array(cols * rows);  // 1: Plaine, 2: Désert, 3: Montagne
-        let owners = new Uint8Array(cols * rows);   // 0: Neutre, 1: Joueur, 2,3: Bots
+    const world = new Uint8Array(cols * rows); // 0 water, 1 land
+    const terrain = new Uint8Array(cols * rows); // 1 plain,2 desert,3 mountain
+    const owners = new Uint8Array(cols * rows);
 
-        let activeArmies = [];
+    let playerColors = {};
+    function generateRandomColor(){
+        const h = Math.floor(Math.random()*360);
+        const s = 70 + Math.floor(Math.random()*30);
+        const l = 45 + Math.floor(Math.random()*15);
+        const c = (1 - Math.abs(2*l/100 - 1))*(s/100);
+        const x = c*(1 - Math.abs((h/60)%2 -1));
+        const m = l/100 - c/2;
+        let r=0,g=0,b=0;
+        if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}
+        return [Math.round((r+m)*255),Math.round((g+m)*255),Math.round((b+m)*255)];
+    }
+    function assignColors(){ playerColors[1]=generateRandomColor(); playerColors[2]=generateRandomColor(); playerColors[3]=generateRandomColor(); document.getElementById('myColorDot').style.background = `rgb(${playerColors[1].join(',')})`; }
+    assignColors();
 
-        // Couleurs de terrains
-        const terrainColors = {
-            1: [91, 140, 49],   // Plaine (Vert)
-            2: [158, 133, 77],  // Désert (Brun)
-            3: [232, 236, 239]  // Montagne (Blanc)
-        };
+    // Terrain color palette
+    const terrainColors = {1:[91,140,49],2:[210,180,120],3:[232,236,239]};
 
-        const terrainSpeedModifiers = {
-            1: 1.0,          // Normal
-            2: 1.0 / 1.5,    // 1.5x plus lent
-            3: 1.0 / 3.0     // 3x plus lent
-        };
+    // Load countries GeoJSON (public dataset)
+    const GEOJSON_URL = 'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson';
 
-        let playerColors = {};
+    async function buildWorldFromGeoJSON(){
+        const res = await fetch(GEOJSON_URL);
+        const geo = await res.json();
+        // draw into an offscreen canvas using equirectangular projection
+        const off = document.createElement('canvas'); off.width = cols; off.height = rows; const octx = off.getContext('2d');
+        octx.fillStyle = '#000'; octx.fillRect(0,0,cols,rows);
+        octx.fillStyle = '#fff';
 
-        function generateRandomColor() {
-            let h = Math.floor(Math.random() * 360);
-            let s = 70 + Math.floor(Math.random() * 30);
-            let l = 45 + Math.floor(Math.random() * 15);
+        function lon2x(lon){ return Math.floor((lon + 180) / 360 * cols); }
+        function lat2y(lat){ return Math.floor((90 - lat) / 180 * rows); }
 
-            let c = (1 - Math.abs(2 * l / 100 - 1)) * (s / 100);
-            let x = c * (1 - Math.abs((h / 60) % 2 - 1));
-            let m = l / 100 - c / 2;
-            let r = 0, g = 0, b = 0;
+        // GeoJSON can contain MultiPolygons / Polygons
+        geo.features.forEach(f => {
+            const geom = f.geometry;
+            if(!geom) return;
+            const drawPoly = (coords) => {
+                octx.beginPath();
+                coords.forEach((ring, ri) => {
+                    ring.forEach((pt, i) => {
+                        const x = lon2x(pt[0]);
+                        const y = lat2y(pt[1]);
+                        if(i===0) octx.moveTo(x,y); else octx.lineTo(x,y);
+                    });
+                    octx.closePath();
+                });
+                octx.fill();
+            };
 
-            if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-            else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-            else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-            else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-            else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-            else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
-
-            return [
-                Math.round((r + m) * 255),
-                Math.round((g + m) * 255),
-                Math.round((b + m) * 255)
-            ];
-        }
-
-        function assignRandomColors() {
-            playerColors[1] = generateRandomColor(); // Joueur
-            playerColors[2] = generateRandomColor(); // Bot 1
-            playerColors[3] = generateRandomColor(); // Bot 2
-
-            let c = playerColors[1];
-            document.getElementById("myColorDot").style.background = `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-        }
-
-        function pseudoNoise(x, y, scale) {
-            return (Math.sin(x * scale) + Math.cos(y * scale) + Math.sin((x + y) * scale * 0.5)) / 3;
-        }
-
-        function generateWorld() {
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    let idx = r * cols + c;
-                    let continent = pseudoNoise(c, r, 0.015) + pseudoNoise(c, r, 0.03) * 0.5;
-
-                    if (continent > -0.15) {
-                        world[idx] = 1;
-
-                        let elevation = pseudoNoise(c, r, 0.04) + pseudoNoise(c * 2, r * 2, 0.08) * 0.3;
-
-                        if (elevation > 0.35) {
-                            terrain[idx] = 3;
-                        } else if (elevation > 0.05) {
-                            terrain[idx] = 2;
-                        } else {
-                            terrain[idx] = 1;
-                        }
-                    } else {
-                        world[idx] = 0;
-                        terrain[idx] = 0;
-                    }
-                }
-            }
-        }
-
-        function setSpawnArea(r, c, ownerId, radius = 5) {
-            let changed = false;
-            for (let dr = -radius; dr <= radius; dr++) {
-                for (let dc = -radius; dc <= radius; dc++) {
-                    let nr = r + dr, nc = c + dc;
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                        let idx = nr * cols + nc;
-                        if (world[idx] === 1 && owners[idx] !== ownerId) {
-                            owners[idx] = ownerId;
-                            changed = true;
-                        }
-                    }
-                }
-            }
-            if (changed) ownersChanged = true;
-        }
-
-        function spawnOtherBots(playerR, playerC) {
-            let spawnedEnemies = 0;
-            let attempts = 0;
-
-            while (spawnedEnemies < 2 && attempts < 2000) {
-                attempts++;
-                let randR = Math.floor(Math.random() * (rows - 40)) + 20;
-                let randC = Math.floor(Math.random() * (cols - 40)) + 20;
-                let idx = randR * cols + randC;
-
-                let distToPlayer = Math.hypot(randC - playerC, randR - playerR);
-
-                if (world[idx] === 1 && owners[idx] === 0 && distToPlayer > 80) {
-                    let botOwner = (spawnedEnemies === 0) ? 2 : 3;
-                    setSpawnArea(randR, randC, botOwner, 5);
-                    spawnedEnemies++;
-                }
-            }
-        }
-
-        generateWorld();
-        assignRandomColors();
-
-        // --- Button handlers: use delegation/listeners, avoid inline onclick and global event ---
-        document.querySelectorAll(".send-btn").forEach(btn => {
-            btn.addEventListener("click", (ev) => {
-                const pct = Number(btn.getAttribute("data-pct")) || 50;
-                setPercentage(pct, btn);
-            });
+            if(geom.type === 'Polygon') drawPoly(geom.coordinates);
+            else if(geom.type === 'MultiPolygon') geom.coordinates.forEach(p => drawPoly(p));
         });
 
-        function setPercentage(pct, btnElement = null) {
-            sendPercentage = pct;
-            document.querySelectorAll(".controls-group .btn").forEach(b => b.classList.remove("active"));
-            if (btnElement) btnElement.classList.add("active");
-            updateHUD();
-        }
-
-        // click -> translate coordinates (accounting for visual scaling)
-        canvas.addEventListener("click", (e) => {
-            // compute logical coords (0..cols-1, 0..rows-1)
-            const rect = canvas.getBoundingClientRect();
-            // visual width/height in CSS pixels
-            const cssWidth = rect.width;
-            const cssHeight = rect.height;
-            const scaleX = cols / cssWidth;
-            const scaleY = rows / cssHeight;
-
-            const tx = Math.floor((e.clientX - rect.left) * scaleX);
-            const ty = Math.floor((e.clientY - rect.top) * scaleY);
-
-            if (tx < 0 || tx >= cols || ty < 0 || ty >= rows) return;
-
-            if (!gameStarted) {
-                let targetIdx = ty * cols + tx;
-                if (world[targetIdx] === 1) {
-                    setSpawnArea(ty, tx, 1, 6);
-                    spawnOtherBots(ty, tx);
-                    gameStarted = true;
-                    document.getElementById("spawnNotice").style.display = "none";
-                    document.getElementById("actionMsg").innerText = "🎮 Partie lancée ! Attaque pour agrandir ton territoire !";
-                    document.getElementById("actionMsg").style.color = "#88a0bc";
-                    updateHUD();
-                } else {
-                    document.getElementById("actionMsg").innerText = "⚠️ Tu dois choisir un emplacement sur la TERRE !";
-                    document.getElementById("actionMsg").style.color = "#ff4444";
-                }
-                return;
-            }
-
-            let targetIdx = ty * cols + tx;
-            if (world[targetIdx] === 1 && owners[targetIdx] !== 1) {
-                let startPoint = findClosestTerritoryPoint(tx, ty, 1);
-                if (startPoint) {
-                    let amount = Math.floor(reserveTroops * (sendPercentage / 100));
-                    amount = Math.max(1, amount); // send at least 1
-                    if (amount >= 1) {
-                        reserveTroops -= amount;
-                        activeArmies.push({
-                            x: startPoint.x + 0.5,
-                            y: startPoint.y + 0.5,
-                            targetX: tx + 0.5,
-                            targetY: ty + 0.5,
-                            count: amount,
-                            owner: 1
-                        });
-                        document.getElementById("actionMsg").innerText = `⚔️ ${amount} troupes en marche vers la cible !`;
-                        ownersChanged = true; // we'll update visuals as owners are conquered
-                        updateHUD();
-                    }
-                }
-            }
-        });
-
-        function findClosestTerritoryPoint(tx, ty, ownerId) {
-            let closest = null, minDist = Infinity;
-            // we iterate all cells; step 1 for better precision (was 2)
-            for (let r = 0; r < rows; r += 2) {
-                for (let c = 0; c < cols; c += 2) {
-                    let idx = r * cols + c;
-                    if (owners[idx] === ownerId) {
-                        let d = Math.hypot(c - tx, r - ty);
-                        if (d < minDist) { minDist = d; closest = { x: c, y: r }; }
-                    }
-                }
-            }
-            return closest;
-        }
-
-        function updateArmies() {
-            for (let i = activeArmies.length - 1; i >= 0; i--) {
-                let army = activeArmies[i];
-
-                let cx = Math.floor(army.x);
-                let cy = Math.floor(army.y);
-                if (cx < 0 || cx >= cols || cy < 0 || cy >= rows) { activeArmies.splice(i, 1); continue; }
-                let currentIdx = cy * cols + cx;
-
-                let terrainType = terrain[currentIdx] || 1;
-                let speedModifier = terrainSpeedModifiers[terrainType] || 1.0;
-                let baseSpeed = 0.8;
-
-                let dx = army.targetX - army.x;
-                let dy = army.targetY - army.y;
-                let dist = Math.hypot(dx, dy);
-
-                if (dist > 0.5 && army.count > 0) {
-                    army.x += (dx / dist) * baseSpeed * speedModifier;
-                    army.y += (dy / dist) * baseSpeed * speedModifier;
-
-                    let newIdx = Math.floor(army.y) * cols + Math.floor(army.x);
-
-                    if (world[newIdx] === 1 && owners[newIdx] !== army.owner) {
-                        // capture tile: remove 1 troop per capture (integer model)
-                        owners[newIdx] = army.owner;
-                        army.count = Math.max(0, army.count - 1);
-                        ownersChanged = true;
-                    }
-                } else {
-                    activeArmies.splice(i, 1);
-                }
-
-                if (army.count <= 0) {
-                    // if no troops left, remove
-                    if (activeArmies[i]) activeArmies.splice(i, 1);
-                }
+        // read back pixels to set world[]
+        const img = octx.getImageData(0,0,cols,rows).data;
+        for(let y=0;y<rows;y++){
+            for(let x=0;x<cols;x++){
+                const i = (y*cols + x)*4;
+                const r = img[i], g=img[i+1], b=img[i+2];
+                // white = land
+                if(r>128 || g>128 || b>128) world[y*cols + x] = 1; else world[y*cols + x] = 0;
             }
         }
 
-        // Auto-income timer
-        setInterval(() => {
-            if (!gameStarted) return;
-            let territory = countTerritory(1);
-            reserveTroops += Math.max(3, Math.floor(territory * 0.05));
-            gold += Math.max(1, Math.floor(territory * 0.02));
-            updateHUD();
-        }, 1000);
-
-        function countTerritory(ownerId) {
-            let c = 0;
-            for (let i = 0; i < cols * rows; i++) {
-                if (owners[i] === ownerId) c++;
+        // Generate terrain using elevation approximation: combine latitude + noise
+        for(let y=0;y<rows;y++){
+            const lat = 90 - (y / rows) * 180; // degrees
+            for(let x=0;x<cols;x++){
+                const idx = y*cols + x;
+                if(world[idx]===0){ terrain[idx]=0; continue; }
+                // simple rules: mountains more likely at higher latitudes and in some noise pockets
+                const noise = pseudoNoise(x, y, 0.02) + pseudoNoise(x*1.5,y*1.3,0.04)*0.5;
+                const mountainScore = noise + (Math.abs(lat) > 40 ? 0.35 : 0); // more mountains towards poles
+                if(mountainScore > 0.55) terrain[idx]=3; // mountain
+                else if(mountainScore > 0.15) terrain[idx]=2; // desert-ish/brownish (not true desert but varied)
+                else terrain[idx]=1; // plain
             }
-            return c;
         }
 
-        function updateHUD() {
-            document.getElementById("goldVal").innerText = Math.floor(gold);
-            document.getElementById("reserveVal").innerText = Math.floor(reserveTroops);
-            document.getElementById("sendVal").innerText = Math.floor(reserveTroops * (sendPercentage / 100));
+        // initial owners: none
+        for(let i=0;i<cols*rows;i++) owners[i]=0;
+
+        // draw initial image
+        ownersChanged = true;
+    }
+
+    function pseudoNoise(x,y,scale){ return (Math.sin(x*scale) + Math.cos(y*scale) + Math.sin((x+y)*scale*0.5))/3; }
+
+    // Call build
+    buildWorldFromGeoJSON().then(()=>{ console.log('World built from GeoJSON'); });
+
+    // gameplay arrays
+    let activeArmies = [];
+
+    // button handlers
+    document.querySelectorAll('.send-btn').forEach(btn=>btn.addEventListener('click',()=>{
+        const pct = Number(btn.getAttribute('data-pct'))||50;
+        sendPercentage = pct; document.querySelectorAll('.send-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); updateHUD();
+    }));
+
+    canvas.addEventListener('click', (e)=>{
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = cols / rect.width; const scaleY = rows / rect.height;
+        const tx = Math.floor((e.clientX - rect.left) * scaleX);
+        const ty = Math.floor((e.clientY - rect.top) * scaleY);
+        if(tx<0||tx>=cols||ty<0||ty>=rows) return;
+        const idx = ty*cols + tx;
+        if(!gameStarted){
+            if(world[idx]===1){ setSpawnArea(ty,tx,1,8); spawnOtherBots(ty,tx); gameStarted=true; document.getElementById('spawnNotice').style.display='none'; document.getElementById('actionMsg').innerText='🎮 Partie lancée !'; document.getElementById('actionMsg').style.color='#88a0bc'; updateHUD(); }
+            else{ document.getElementById('actionMsg').innerText='⚠️ Tu dois choisir un emplacement sur la TERRE !'; document.getElementById('actionMsg').style.color='#ff4444'; }
+            return;
         }
+        if(world[idx]===1 && owners[idx]!==1){ let start = findClosestTerritoryPoint(tx,ty,1); if(start){ let amount = Math.floor(reserveTroops*(sendPercentage/100)); amount=Math.max(1,amount); reserveTroops-=amount; activeArmies.push({x:start.x+0.5,y:start.y+0.5,targetX:tx+0.5,targetY:ty+0.5,count:amount,owner:1}); document.getElementById('actionMsg').innerText=`⚔️ ${amount} troupes en marche vers la cible !`; ownersChanged=true; updateHUD(); } }
+    });
 
-        // ImageData buffer for logical resolution (cols x rows)
-        const imgData = ctx.createImageData(cols, rows);
-        const data = imgData.data;
-        let ownersChanged = true; // mark initially true so first draw builds image
+    function setSpawnArea(r,c,ownerId,radius=6){ for(let dr=-radius;dr<=radius;dr++){ for(let dc=-radius;dc<=radius;dc++){ const nr=r+dr,nc=c+dc; if(nr>=0 && nr<rows && nc>=0 && nc<cols){ const i=nr*cols+nc; if(world[i]===1) owners[i]=ownerId; } }} ownersChanged=true; }
 
-        function rebuildImageData() {
-            // Rebuild pixel buffer from world/terrain/owners
-            for (let i = 0; i < cols * rows; i++) {
-                let p = i * 4;
-                if (world[i] === 1) {
-                    let o = owners[i];
-                    if (o > 0 && playerColors[o]) {
-                        let c = playerColors[o];
-                        data[p] = c[0]; data[p+1] = c[1]; data[p+2] = c[2]; data[p+3] = 255;
-                    } else {
-                        let t = terrain[i] || 1;
-                        let c = terrainColors[t] || [91,140,49];
-                        data[p] = c[0]; data[p+1] = c[1]; data[p+2] = c[2]; data[p+3] = 255;
-                    }
-                } else {
-                    data[p] = 18; data[p+1] = 25; data[p+2] = 36; data[p+3] = 255;
-                }
-            }
-            ownersChanged = false;
-        }
+    function spawnOtherBots(playerR,playerC){ let spawned=0,attempts=0; while(spawned<2 && attempts<2000){ attempts++; const rr=Math.floor(Math.random()*(rows-60))+30; const rc=Math.floor(Math.random()*(cols-60))+30; const idx=rr*cols+rc; const dist=Math.hypot(rc-playerC,rr-playerR); if(world[idx]===1 && owners[idx]===0 && dist>150){ const bot = (spawned===0?2:3); setSpawnArea(rr,rc,bot,6); spawned++; } } }
 
-        function draw() {
-            updateArmies();
+    function findClosestTerritoryPoint(tx,ty,ownerId){ let closest=null,md=Infinity; for(let y=0;y<rows;y+=4){ for(let x=0;x<cols;x+=4){ const i=y*cols+x; if(owners[i]===ownerId){ const d=Math.hypot(x-tx,y-ty); if(d<md){md=d;closest={x,y}} } }} return closest; }
 
-            // only rebuild image buffer when owners/terrain changed
-            if (ownersChanged) {
-                rebuildImageData();
-                // putImageData uses the buffer at logical size (cols x rows)
-                // we draw it on a transformed context so it is upscaled visually
-                ctx.putImageData(imgData, 0, 0);
-            } else {
-                // still need to clear and put previous buffer so armies draw on top correctly
-                // to avoid a full rebuild, just draw the existing ImageData (cheap putImageData)
-                ctx.putImageData(imgData, 0, 0);
-            }
+    function updateArmies(){ for(let i=activeArmies.length-1;i>=0;i--){ const army=activeArmies[i]; const cx=Math.floor(army.x), cy=Math.floor(army.y); if(cx<0||cx>=cols||cy<0||cy>=rows){ activeArmies.splice(i,1); continue; } const idx=cy*cols+cx; const terrainType=terrain[idx]||1; const speedModifier = (terrainType===3?0.35:(terrainType===2?0.7:1.0)); const baseSpeed=0.9; const dx=army.targetX-army.x, dy=army.targetY-army.y; const dist=Math.hypot(dx,dy); if(dist>0.5 && army.count>0){ army.x += (dx/dist)*baseSpeed*speedModifier; army.y += (dy/dist)*baseSpeed*speedModifier; const nidx = Math.floor(army.y)*cols + Math.floor(army.x); if(world[nidx]===1 && owners[nidx]!==army.owner){ owners[nidx]=army.owner; army.count = Math.max(0, army.count - 1); ownersChanged=true; } } else { activeArmies.splice(i,1); } if(army.count<=0 && activeArmies[i]) activeArmies.splice(i,1); } }
 
-            // Draw moving troops on top
-            activeArmies.forEach(army => {
-                // pick owner's color border or white dot for visibility
-                const ownerColor = playerColors[army.owner] ? `rgb(${playerColors[army.owner].join(',')})` : '#ffffff';
-                ctx.fillStyle = '#ffffff';
-                // Draw small rectangle scaled in logical pixels
-                ctx.fillRect(Math.floor(army.x) - 1, Math.floor(army.y) - 1, 2, 2);
-                // optional: small colored dot with stroke:
-                ctx.fillStyle = ownerColor;
-                // small dot center (1x1)
-                ctx.fillRect(Math.floor(army.x), Math.floor(army.y), 1, 1);
-            });
+    setInterval(()=>{ if(!gameStarted) return; const territory = countTerritory(1); reserveTroops += Math.max(3, Math.floor(territory*0.05)); gold += Math.max(1, Math.floor(territory*0.02)); updateHUD(); }, 1000);
 
-            requestAnimationFrame(draw);
-        }
+    function countTerritory(ownerId){ let c=0; for(let i=0;i<cols*rows;i++) if(owners[i]===ownerId) c++; return c; }
+    function updateHUD(){ document.getElementById('goldVal').innerText=Math.floor(gold); document.getElementById('reserveVal').innerText=Math.floor(reserveTroops); document.getElementById('sendVal').innerText=Math.floor(reserveTroops*(sendPercentage/100)); }
 
-        draw();
+    // ImageData buffer
+    const imgData = ctx.createImageData(cols,rows); const data = imgData.data; let ownersChanged = true;
+    function rebuildImageData(){ for(let i=0;i<cols*rows;i++){ const p=i*4; if(world[i]===1){ const o=owners[i]; if(o>0 && playerColors[o]){ const c=playerColors[o]; data[p]=c[0]; data[p+1]=c[1]; data[p+2]=c[2]; data[p+3]=255; } else { const t=terrain[i]||1; const c=terrainColors[t]||[91,140,49]; data[p]=c[0]; data[p+1]=c[1]; data[p+2]=c[2]; data[p+3]=255; } } else { data[p]=18; data[p+1]=25; data[p+2]=36; data[p+3]=255; } } ownersChanged=false; }
+
+    function draw(){ updateArmies(); if(ownersChanged){ rebuildImageData(); ctx.putImageData(imgData,0,0); } else { ctx.putImageData(imgData,0,0); }
+        // draw armies
+        activeArmies.forEach(a=>{ ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.floor(a.x)-1, Math.floor(a.y)-1, 2, 2); ctx.fillStyle = playerColors[a.owner] ? `rgb(${playerColors[a.owner].join(',')})` : '#ffffff'; ctx.fillRect(Math.floor(a.x), Math.floor(a.y), 1, 1); });
+        requestAnimationFrame(draw);
+    }
+
+    draw();
     </script>
 </body>
 </html>
